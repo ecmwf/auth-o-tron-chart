@@ -101,3 +101,5 @@ mongodb:
     
 # The URI to the auth store. If mongodb is enabled, this is ignored.
 authStoreUri: 
+
+configPath: config.yaml
