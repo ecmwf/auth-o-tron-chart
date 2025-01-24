@@ -1,0 +1,25 @@
+mongodb:
+  enabled: true
+  architecture: replicaset
+  auth:
+    enabled: false
+  systemLogVerbosity: 0 #default value 0
+  replicaCount: 2 #default value 2
+  resourcesPreset: large
+  service:
+    nameOverride: mongodb #required for polytope to find the mongodb service
+  networkPolicy:
+    enabled: false #default value true but we dont need it
+  persistence:
+    enabled: true
+    size: 20Gi #default value 8Gi
+  metrics:
+    enabled: true
+    collector:
+      all: true #export all metrics, default false
+    resourcesPreset: small
+    serviceMonitor:
+      enabled: true #this is for prometheus to scrape metrics
+  pdb:
+    enabled: true
+    minAvailable: 1
