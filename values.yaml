@@ -1,25 +1,50 @@
+nameOverride: ""
+fullnameOverride: ""
+
 mongodb:
-  enabled: true
-  architecture: replicaset
-  auth:
+  enabled: false
+
+replicaCount: 1
+
+image:
+  repository: eccr.ecmwf.int/auth-o-tron/auth-o-tron-debug
+  tag: v0.2.0
+  pullPolicy: IfNotPresent
+
+# pullSecret is used to pull images from a private registry
+pullSecret:
+  enabled: false
+  # if you want to use a private registry, you can provide the credentials here
+  # imageCredentials:
+  #   registry: ""
+  #   username: ""
+  #   password: ""
+
+service:
+  type: ClusterIP
+  port: 80
+
+config:
+  version: 1.0.0 # this is the version of the configuration file
+  logging:
+    level: info
+    format: console
+  
+  providers: []
+
+  store:
     enabled: false
-  systemLogVerbosity: 0 #default value 0
-  replicaCount: 2 #default value 2
-  resourcesPreset: large
-  service:
-    nameOverride: mongodb #required for polytope to find the mongodb service
-  networkPolicy:
-    enabled: false #default value true but we dont need it
-  persistence:
-    enabled: true
-    size: 20Gi #default value 8Gi
-  metrics:
-    enabled: true
-    collector:
-      all: true #export all metrics, default false
-    resourcesPreset: small
-    serviceMonitor:
-      enabled: true #this is for prometheus to scrape metrics
-  pdb:
-    enabled: true
-    minAvailable: 1
+    # you can enable the store and configure it to use a MongoDB instance
+    # type: "mongo"
+    # database: "tokens"
+    # uri: "mongodb://mongodb:27017"
+
+  jwt:
+    exp: 3600
+    iss: ""
+    aud: ""
+    secret: ""
+  
+  services: []
+
+  bind_address: "0.0.0.0:8080"
