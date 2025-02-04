@@ -1,15 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "auth-o-tron-chart.fullname" . }}
-  labels:
-    {{- include "auth-o-tron-chart.labels" . | nindent 4 }}
+  name: auth-o-tron-svc
 spec:
-  type: {{ .Values.service.type }}
+  type: ClusterIP
   ports:
-    - port: {{ .Values.service.port }}
-      targetPort: http
+    - port: 80
+      targetPort: 8080
       protocol: TCP
-      name: http
   selector:
-    {{- include "auth-o-tron-chart.selectorLabels" . | nindent 4 }}
+    app: {{ include "fullname" . }}

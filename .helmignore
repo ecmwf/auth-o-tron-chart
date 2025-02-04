@@ -1,0 +1,19 @@
+# Patterns to ignore when building packages
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+# Common VCS dirs
+.git/
+.gitignore
+.bzr/
+.bzrignore
+.hg/
+.hgignore
+.svn/
+# Common editor files
+.idea/
+.vscode/
+# Temp directory
+tmp/
