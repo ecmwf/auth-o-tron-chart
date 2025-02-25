@@ -59,7 +59,7 @@ jobs:
         run: ls -l *.tgz
 
       - name: Add Helm Repository
-        run: helm repo add eccr-auth-o-tron https://eccr.ecmwf.int/auth-o-tron -u '${{ secrets.ECMWF_DOCKER_REGISTRY_USERNAME }}' -p '${{ secrets.ECMWF_DOCKER_REGISTRY_ACCESS_TOKEN }}'
+        run: helm repo add eccr-auth-o-tron https://eccr.ecmwf.int/auth-o-tron --username '${{ secrets.ECMWF_DOCKER_REGISTRY_USERNAME }}' --password '${{ secrets.ECMWF_DOCKER_REGISTRY_ACCESS_TOKEN }}'
 
       - name: Push Packaged Chart
         run: |
