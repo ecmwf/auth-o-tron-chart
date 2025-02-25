@@ -46,6 +46,10 @@ jobs:
           echo "Chart.yaml version: $CHART_VERSION"
           echo "Effective version (tag): $EFFECTIVE_VERSION"
 
+      # The following step is necessary even dependencies are not used.
+      - name: Update Chart Dependencies
+        run: helm dependency update .
+
       - name: Package Helm Chart
         run: |
           echo "Packaging chart with version $EFFECTIVE_VERSION"
