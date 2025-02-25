@@ -61,6 +61,9 @@ jobs:
       - name: Add Helm Repository
         run: helm repo add eccr-auth-o-tron https://eccr.ecmwf.int/chartrepo/auth-o-tron --username '${{ secrets.ECMWF_DOCKER_REGISTRY_USERNAME }}' --password '${{ secrets.ECMWF_DOCKER_REGISTRY_ACCESS_TOKEN }}'
 
+      - name: Install cm-push Plugin
+        run: helm plugin install https://github.com/chartmuseum/helm-push
+
       - name: Push Packaged Chart
         run: |
           PACKAGE_FILE="${{ env.CHART_NAME }}-${{ env.EFFECTIVE_VERSION }}.tgz"
