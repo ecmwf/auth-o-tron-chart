@@ -47,7 +47,7 @@ maintainers:
   - name: James Hawkes
 
 sources:
-  - https://https://github.com/ecmwf/auth-o-tron
+  - https://github.com/ecmwf/auth-o-tron
 
 keywords:
   - authentication
