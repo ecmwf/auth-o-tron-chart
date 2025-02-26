@@ -8,7 +8,7 @@ replicaCount: 1
 
 image:
   repository: eccr.ecmwf.int/auth-o-tron/auth-o-tron-debug
-  tag: v0.2.0
+  tag: 0.2.1
   pullPolicy: IfNotPresent
 
 # pullSecret is used to pull images from a private registry

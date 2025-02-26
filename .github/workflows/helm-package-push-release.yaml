@@ -1,0 +1,81 @@
+name: Helm Package, Push & (Conditional) Release
+
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The tag to use for packaging (must be provided when triggered manually)."
+        required: true
+
+permissions:
+  contents: write # Required for creating GitHub releases
+
+jobs:
+  package-push-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install Helm (Official)
+        run: |
+          curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+          chmod 700 get_helm.sh
+          ./get_helm.sh
+
+      - name: Determine Versions
+        id: versions
+        run: |
+          # Extract chart name and version from Chart.yaml in the repository root.
+          CHART_VERSION=$(awk -F": " '/^version:/{print $2}' Chart.yaml | tr -d '[:space:]')
+          CHART_NAME=$(awk -F": " '/^name:/{print $2}' Chart.yaml | tr -d '[:space:]')
+          echo "CHART_VERSION=$CHART_VERSION" >> $GITHUB_ENV
+          echo "CHART_NAME=$CHART_NAME" >> $GITHUB_ENV
+
+          # Use the tag from the trigger—manual input (workflow_dispatch) or push event.
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            EFFECTIVE_VERSION="${{ github.event.inputs.tag }}"
+          else
+            EFFECTIVE_VERSION="${GITHUB_REF##*/}"
+          fi
+          echo "EFFECTIVE_VERSION=$EFFECTIVE_VERSION" >> $GITHUB_ENV
+
+          echo "Chart.yaml version: $CHART_VERSION"
+          echo "Effective version (tag): $EFFECTIVE_VERSION"
+
+      # The following step is necessary even dependencies are not used.
+      - name: Update Chart Dependencies
+        run: helm dependency update .
+
+      - name: Package Helm Chart
+        run: |
+          echo "Packaging chart with version $EFFECTIVE_VERSION"
+          helm package . --version "$EFFECTIVE_VERSION"
+
+      - name: List Packaged Files
+        run: ls -l *.tgz
+
+      - name: Add Helm Repository
+        run: helm repo add eccr-auth-o-tron https://eccr.ecmwf.int/chartrepo/auth-o-tron --username '${{ secrets.ECMWF_DOCKER_REGISTRY_USERNAME }}' --password '${{ secrets.ECMWF_DOCKER_REGISTRY_ACCESS_TOKEN }}'
+
+      - name: Install cm-push Plugin
+        run: helm plugin install https://github.com/chartmuseum/helm-push
+
+      - name: Push Packaged Chart
+        run: |
+          PACKAGE_FILE="${{ env.CHART_NAME }}-${{ env.EFFECTIVE_VERSION }}.tgz"
+          echo "Pushing package file: $PACKAGE_FILE"
+          helm cm-push "$PACKAGE_FILE" eccr-auth-o-tron
+
+      - name: Create GitHub Release if Tag Equals Chart Version
+        if: ${{ env.EFFECTIVE_VERSION == env.CHART_VERSION }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.EFFECTIVE_VERSION }}
+          name: "${{ env.CHART_NAME }} v${{ env.EFFECTIVE_VERSION }}"
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
