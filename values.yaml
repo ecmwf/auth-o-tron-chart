@@ -7,8 +7,8 @@ mongodb:
 replicaCount: 1
 
 image:
-  repository: eccr.ecmwf.int/auth-o-tron/auth-o-tron-debug
-  tag: 0.2.5
+  repository: eccr.ecmwf.int/auth-o-tron/auth-o-tron
+  tag: 0.2.6
   pullPolicy: IfNotPresent
 
 # pullSecret is used to pull images from a private registry
