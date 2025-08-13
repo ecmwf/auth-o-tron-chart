@@ -42,7 +42,6 @@ config:
   jwt:
     exp: 3600
     iss: ""
-    aud: ""
     secret: ""
   
   services: []
