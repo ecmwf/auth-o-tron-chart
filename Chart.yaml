@@ -35,7 +35,7 @@ type: application
 dependencies:
   - name: mongodb
     version: 16.4.2 # latest version as of 24-01-2025
-    repository: https://docker.io/bitnamilegacy
+    repository: "https://charts.bitnami.com/bitnami"
     condition: mongodb.enabled
 
 version: 0.1.5
