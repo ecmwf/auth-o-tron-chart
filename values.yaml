@@ -6,6 +6,11 @@ mongodb:
 
 replicaCount: 1
 
+metrics:
+  enabled: true  # Enable Prometheus metrics
+  interval: 30s  # How often Prometheus scrapes metrics
+  scrapeTimeout: 10s  # Timeout for each scrape
+
 image:
   repository: eccr.ecmwf.int/auth-o-tron/auth-o-tron
   tag: 0.2.9
