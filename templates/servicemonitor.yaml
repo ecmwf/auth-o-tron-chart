@@ -1,0 +1,23 @@
+{{- if .Values.metrics.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app: {{ include "fullname" . }}
+spec:
+  # Select the service to monitor based on labels
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "fullname" . }}
+  
+  # Define the endpoints to scrape
+  endpoints:
+    - port: http-auth  # This should match the port name of the service
+      path: /metrics
+      interval: {{ .Values.metrics.interval }}
+      scrapeTimeout: {{ .Values.metrics.scrapeTimeout }}
+{{- end }}
