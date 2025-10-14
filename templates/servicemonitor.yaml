@@ -7,9 +7,7 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ include "name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
-    {{- if .Values.metrics.additionalLabels }}
-    {{- toYaml .Values.metrics.additionalLabels | nindent 4 }}
-    {{- end }}
+    app: {{ include "fullname" . }}
 spec:
   # Select the service to monitor based on labels
   selector:
@@ -18,7 +16,7 @@ spec:
   
   # Define the endpoints to scrape
   endpoints:
-    - port: http  # This should match the port name of the service
+    - port: http-auth  # This should match the port name of the service
       path: /metrics
       interval: {{ .Values.metrics.interval }}
       scrapeTimeout: {{ .Values.metrics.scrapeTimeout }}
