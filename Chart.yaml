@@ -35,11 +35,11 @@ type: application
 dependencies:
   - name: mongodb
     version: 16.4.2 # latest version as of 24-01-2025
-    repository: https://charts.bitnami.com/bitnami
+    repository: https://docker.io/bitnamilegacy
     condition: mongodb.enabled
 
-version: 0.1.4
-appVersion: 0.2.6 # latest version of auth-o-tron as of 23-05-2025
+version: 0.1.5
+appVersion: 0.2.9 # latest version of auth-o-tron as of 14-10-2025
 
 maintainers:
   - name: Samet Demir
