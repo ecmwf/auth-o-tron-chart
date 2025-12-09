@@ -52,9 +52,9 @@ jobs:
 
       - name: Login to Harbor Registry (OCI)
         run: |
-          echo "${{ secrets.ECMWF_DOCKER_REGISTRY_ACCESS_TOKEN }}" | \
+          echo '${{ secrets.ECMWF_DOCKER_REGISTRY_ACCESS_TOKEN }}' | \
           helm registry login eccr.ecmwf.int \
-          --username "${{ secrets.ECMWF_DOCKER_REGISTRY_USERNAME }}" \
+          --username '${{ secrets.ECMWF_DOCKER_REGISTRY_USERNAME }}' \
           --password-stdin
 
       - name: Push Packaged Chart
