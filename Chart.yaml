@@ -19,7 +19,7 @@
 ##
 
 apiVersion: v2
-name: auth-o-tron
+name: auth-o-tron-chart
 description: |
   Auth-O-Tron: Effortless authentication and authorization for web APIs.
 
