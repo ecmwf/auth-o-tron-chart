@@ -13,7 +13,7 @@ metrics:
 
 image:
   repository: eccr.ecmwf.int/auth-o-tron/auth-o-tron
-  tag: 0.2.9
+  tag: 0.2.10
   pullPolicy: IfNotPresent
 
 # pullSecret is used to pull images from a private registry

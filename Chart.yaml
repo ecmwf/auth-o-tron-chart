@@ -39,7 +39,7 @@ dependencies:
     condition: mongodb.enabled
 
 version: 0.1.5
-appVersion: 0.2.9 # latest version of auth-o-tron as of 14-10-2025
+appVersion: 0.2.10 # latest version of auth-o-tron as of 26-01-2026
 
 maintainers:
   - name: Samet Demir
