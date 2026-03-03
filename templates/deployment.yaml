@@ -18,6 +18,9 @@ spec:
         app.kubernetes.io/name: {{ include "name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
       annotations:
+      {{- if .Values.template_annotations }}
+        {{- toYaml .Values.template_annotations | nindent 8 }}
+      {{- end }}
         checksum/config: {{ .Values | toYaml | sha256sum }}
     spec:
     {{- if .Values.pullSecret.enabled }}
