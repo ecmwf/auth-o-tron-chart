@@ -12,7 +12,7 @@ spec:
   # Select the service to monitor based on labels
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "fullname" . }}
+      app.kubernetes.io/name: {{ include "name" . }}
   
   # Define the endpoints to scrape
   endpoints:

@@ -1,54 +1,84 @@
-nameOverride: ""
+# -- Override the chart name used in resource names.
+# Defaults to "auth-o-tron" to strip the "-chart" suffix from resource names.
+nameOverride: "auth-o-tron"
+# -- Fully override the release name used in resource names
 fullnameOverride: ""
 
+# -- MongoDB subchart toggle (see bitnami/mongodb for full options)
 mongodb:
   enabled: false
 
+# -- Number of auth-o-tron pod replicas
 replicaCount: 1
 
+# -- Prometheus metrics scraping configuration
 metrics:
-  enabled: true  # Enable Prometheus metrics
-  interval: 30s  # How often Prometheus scrapes metrics
-  scrapeTimeout: 10s  # Timeout for each scrape
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
 
+# -- Container image settings
 image:
   repository: eccr.ecmwf.int/auth-o-tron/auth-o-tron
-  tag: 0.2.10
+  tag: 0.2.12
   pullPolicy: IfNotPresent
 
-# pullSecret is used to pull images from a private registry
+# -- Credentials for pulling from a private registry.
+# Enable and fill in imageCredentials to create an image pull secret.
 pullSecret:
   enabled: false
-  # if you want to use a private registry, you can provide the credentials here
   # imageCredentials:
   #   registry: ""
   #   username: ""
   #   password: ""
 
+# -- Annotations added to each pod (template-level metadata).
+# Useful for sidecar injection, log routing, etc.
+podAnnotations: {}
+
+# -- Extra environment variables injected into the auth-o-tron container.
+# Use this to pass secrets via secretKeyRef instead of the ConfigMap.
+# Example:
+#   extraEnv:
+#     - name: MY_SECRET
+#       valueFrom:
+#         secretKeyRef:
+#           name: my-secret
+#           key: token
+extraEnv: []
+
+# -- Kubernetes Service configuration
 service:
   type: ClusterIP
   port: 8080
+  # -- Annotations added to the Service resource.
+  # Useful for cloud provider LB configuration, DNS controllers, etc.
+  annotations: {}
 
+# -- auth-o-tron application configuration (mounted as config.yaml)
 config:
-  version: 1.0.0 # this is the version of the configuration file
+  version: 1.0.0
   logging:
     level: info
-    format: console
-  
+    format: json
+
+  # -- Authentication provider list (see auth-o-tron docs)
   providers: []
 
+  # -- Optional persistent token store (e.g. MongoDB)
   store:
     enabled: false
-    # you can enable the store and configure it to use a MongoDB instance
     # type: "mongo"
     # database: "tokens"
     # uri: "mongodb://mongodb:27017"
 
+  # -- JWT signing settings
   jwt:
     exp: 3600
     iss: ""
     secret: ""
-  
+
+  # -- Downstream service definitions
   services: []
 
   bind_address: "0.0.0.0:8080"
