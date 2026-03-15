@@ -38,7 +38,7 @@ dependencies:
     repository: "https://charts.bitnami.com/bitnami"
     condition: mongodb.enabled
 
-version: 0.1.9
+version: 0.2.0
 appVersion: 0.2.12 # latest version of auth-o-tron as of 03-03-2026
 
 maintainers:
