@@ -50,6 +50,7 @@ extraEnv: []
 # -- Kubernetes Service configuration
 service:
   type: ClusterIP
+  # -- Must match config.bind_address port until the app separates address and port config.
   port: 8080
   # -- Annotations added to the Service resource.
   # Useful for cloud provider LB configuration, DNS controllers, etc.
