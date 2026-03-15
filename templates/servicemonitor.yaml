@@ -1,4 +1,4 @@
-{{- if .Values.metrics.enabled }}
+{{- if and .Values.metrics.enabled .Values.metrics.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -17,8 +17,8 @@ spec:
   
   # Define the endpoints to scrape
   endpoints:
-    - port: http-auth  # This should match the port name of the service
+    - port: http-metrics
       path: /metrics
-      interval: {{ .Values.metrics.interval }}
-      scrapeTimeout: {{ .Values.metrics.scrapeTimeout }}
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.metrics.serviceMonitor.scrapeTimeout }}
 {{- end }}

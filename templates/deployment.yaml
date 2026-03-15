@@ -35,7 +35,26 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - containerPort: {{ .Values.service.targetPort }}
+            - name: http-auth
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          {{- if .Values.metrics.enabled }}
+            - name: http-metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http-auth
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http-auth
+            initialDelaySeconds: 3
+            periodSeconds: 5
           {{- with .Values.extraEnv }}
           env:
             {{- toYaml . | nindent 12 }}
