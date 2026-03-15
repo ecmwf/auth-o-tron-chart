@@ -1,6 +1,6 @@
 1. APPLICATION ACCESS:
   export POD_NAME=$(kubectl get pods -l "app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
-  kubectl port-forward $POD_NAME {{ .Values.service.port }}:{{ .Values.service.port }}
+  kubectl port-forward $POD_NAME {{ .Values.service.port }}:{{ .Values.service.targetPort }}
 
 2. VERIFY CONFIGURATION (ONLY WHEN DEBUG MODE):
   kubectl exec -n {{ .Release.Namespace }} $POD_NAME -- cat /app/config.yaml

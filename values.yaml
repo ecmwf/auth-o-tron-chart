@@ -1,7 +1,7 @@
 # -- Override the chart name used in resource names.
 # Defaults to "auth-o-tron" to strip the "-chart" suffix from resource names.
 nameOverride: "auth-o-tron"
-# -- Fully override the release name used in resource names
+# -- Fully override the computed resource name (bypasses Release.Name and nameOverride)
 fullnameOverride: ""
 
 # -- MongoDB subchart toggle (see bitnami/mongodb for full options)
@@ -50,8 +50,10 @@ extraEnv: []
 # -- Kubernetes Service configuration
 service:
   type: ClusterIP
-  # -- Must match config.bind_address port until the app separates address and port config.
+  # -- Client-facing Service port.
   port: 8080
+  # -- Container/app listen port. Must match config.bind_address until the app separates address and port config.
+  targetPort: 8080
   # -- Annotations added to the Service resource.
   # Useful for cloud provider LB configuration, DNS controllers, etc.
   annotations: {}
