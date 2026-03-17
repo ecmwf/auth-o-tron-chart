@@ -18,8 +18,8 @@ spec:
         app.kubernetes.io/name: {{ include "name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
       annotations:
-      {{- if .Values.template_annotations }}
-        {{- toYaml .Values.template_annotations | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
         checksum/config: {{ .Values | toYaml | sha256sum }}
     spec:
@@ -35,7 +35,30 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - containerPort: 8080
+            - name: http-auth
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          {{- if .Values.metrics.enabled }}
+            - name: http-metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http-auth
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http-auth
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          {{- with .Values.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - name: config-volume
               mountPath: /app/config.yaml

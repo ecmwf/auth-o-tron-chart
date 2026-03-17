@@ -1,6 +1,12 @@
 1. APPLICATION ACCESS:
   export POD_NAME=$(kubectl get pods -l "app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
-  kubectl port-forward $POD_NAME {{ .Values.service.port }}:8080
+  kubectl port-forward $POD_NAME {{ .Values.service.port }}:{{ .Values.service.targetPort }}
 
 2. VERIFY CONFIGURATION (ONLY WHEN DEBUG MODE):
   kubectl exec -n {{ .Release.Namespace }} $POD_NAME -- cat /app/config.yaml
+
+3. UPGRADING FROM < 0.2.0:
+  Resource names now include the release name (e.g. <release>-auth-o-tron instead of auth-o-tron).
+  To preserve old names during upgrade, set fullnameOverride to your previous resource name:
+    helm upgrade <release> . --set fullnameOverride=auth-o-tron
+  Also note: template_annotations has been renamed to podAnnotations.
