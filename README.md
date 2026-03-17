@@ -14,6 +14,7 @@ Helm chart for deploying [Auth-O-Tron](https://github.com/ecmwf/auth-o-tron) on 
 ## Installation
 
 ```bash
+git clone https://github.com/ecmwf/auth-o-tron-chart.git
 helm install auth-o-tron ./auth-o-tron-chart
 ```
 
