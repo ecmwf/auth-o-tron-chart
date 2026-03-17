@@ -49,7 +49,7 @@ All configuration is done through `values.yaml`. See below for key settings.
 | `ingress.hosts` | Ingress host rules | `[{host: auth-o-tron.local, paths: [{path: /, pathType: Prefix}]}]` |
 | `ingress.tls` | TLS configuration | `[]` |
 
-Only the application port is exposed via ingress. The metrics port stays internal to the cluster. In production, enable TLS and consider restricting ingress paths to only the endpoints you need exposed (e.g. `/authenticate`, `/health`).
+Only the application port is routed via Ingress. The metrics port is not included in the Ingress rules. In production, enable TLS and consider restricting ingress paths to only the endpoints you need exposed (e.g. `/authenticate`, `/health`).
 
 ### Metrics
 

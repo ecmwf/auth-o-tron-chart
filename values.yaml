@@ -64,8 +64,8 @@ service:
   annotations: {}
 
 # -- Ingress configuration for external access.
-# Only the application port is exposed via ingress; the metrics port
-# stays internal to the cluster.
+# Only the application port is routed via ingress; the metrics port
+# is not included in the Ingress rules.
 ingress:
   enabled: false
   className: ""
