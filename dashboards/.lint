@@ -1,0 +1,13 @@
+# Settings for github.com/grafana/dashboard-linter.
+exclusions:
+  target-instance-rule:
+    reason: >
+      Service-level dashboard for a Deployment of interchangeable replicas
+      (pods with churning names). Queries deliberately aggregate across
+      instances and are scoped by the namespace/job template variables; a
+      per-instance selector would break aggregation during rollouts. Per-pod
+      breakdowns that matter group by the pod label instead.
+  template-instance-rule:
+    reason: >
+      Same rationale as target-instance-rule: pods are ephemeral across
+      deploys, so an instance variable would pin queries to dead pods.

@@ -1,0 +1,1938 @@
+{
+ "title": "Auth-O-Tron",
+ "uid": "auth-o-tron",
+ "tags": [
+  "auth-o-tron",
+  "ecmwf"
+ ],
+ "schemaVersion": 39,
+ "version": 1,
+ "editable": false,
+ "graphTooltip": 1,
+ "time": {
+  "from": "now-6h",
+  "to": "now"
+ },
+ "refresh": "30s",
+ "timezone": "",
+ "annotations": {
+  "list": [
+   {
+    "builtIn": 1,
+    "datasource": {
+     "type": "grafana",
+     "uid": "-- Grafana --"
+    },
+    "enable": true,
+    "hide": true,
+    "iconColor": "rgba(0, 211, 255, 1)",
+    "name": "Annotations & Alerts",
+    "type": "dashboard"
+   },
+   {
+    "name": "Deploys",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "${datasource}"
+    },
+    "enable": true,
+    "iconColor": "rgba(255, 96, 96, 1)",
+    "expr": "max by (namespace, job, version) (authotron_build_info{namespace=~\"$namespace\",job=~\"$job\"}) unless max by (namespace, job, version) (authotron_build_info{namespace=~\"$namespace\",job=~\"$job\"} offset 1m)",
+    "titleFormat": "Deploy {{namespace}}/{{job}} {{version}}",
+    "step": "1m"
+   }
+  ]
+ },
+ "templating": {
+  "list": [
+   {
+    "name": "datasource",
+    "label": "Data source",
+    "type": "datasource",
+    "query": "prometheus",
+    "current": {},
+    "hide": 0,
+    "refresh": 1,
+    "options": [],
+    "regex": ""
+   },
+   {
+    "name": "namespace",
+    "label": "Namespace",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "${datasource}"
+    },
+    "query": "label_values(authotron_build_info, namespace)",
+    "refresh": 2,
+    "multi": true,
+    "includeAll": true,
+    "allValue": ".+",
+    "sort": 1,
+    "current": {}
+   },
+   {
+    "name": "job",
+    "label": "Job",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "${datasource}"
+    },
+    "query": "label_values(authotron_build_info{namespace=~\"$namespace\"}, job)",
+    "refresh": 2,
+    "multi": true,
+    "includeAll": true,
+    "allValue": ".+",
+    "sort": 1,
+    "current": {}
+   }
+  ]
+ },
+ "panels": [
+  {
+   "type": "row",
+   "title": "Overview",
+   "id": 1,
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 0
+   },
+   "panels": []
+  },
+  {
+   "type": "stat",
+   "title": "Scrape targets up",
+   "id": 2,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 4,
+    "x": 0,
+    "y": 1
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "none",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum(up{namespace=~\"$namespace\",job=~\"$job\"})",
+     "legendFormat": "",
+     "range": true
+    }
+   ],
+   "description": "Pods being scraped. 0 means metrics are dark, not necessarily the service."
+  },
+  {
+   "type": "stat",
+   "title": "Pods by version",
+   "id": 3,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 4,
+    "x": 4,
+    "y": 1
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    },
+    "overrides": []
+   },
+   "options": {
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "none",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "count by (version) (authotron_build_info{namespace=~\"$namespace\",job=~\"$job\"})",
+     "legendFormat": "{{version}}",
+     "range": true
+    }
+   ],
+   "description": "Distinct running build versions. >1 means a rollout is mid-flight or stuck."
+  },
+  {
+   "type": "stat",
+   "title": "Auth request rate",
+   "id": 4,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 4,
+    "x": 8,
+    "y": 1
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps"
+    },
+    "overrides": []
+   },
+   "options": {
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "area",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum(rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "legendFormat": "",
+     "range": true
+    }
+   ],
+   "description": "Total authentication attempts per second across all realms."
+  },
+  {
+   "type": "stat",
+   "title": "Auth failure ratio",
+   "id": 5,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 4,
+    "x": 12,
+    "y": 1
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "yellow",
+        "value": 0.1
+       },
+       {
+        "color": "red",
+        "value": 0.5
+       }
+      ]
+     },
+     "decimals": 2
+    },
+    "overrides": []
+   },
+   "options": {
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "none",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum(rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\",result!=\"success\"}[$__rate_interval])) / clamp_min(sum(rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])), 1e-9)",
+     "legendFormat": "",
+     "range": true
+    }
+   ],
+   "description": "Share of auth attempts that did not succeed (all_failed, invalid_header, no_auth_header)."
+  },
+  {
+   "type": "stat",
+   "title": "Auth p99 latency",
+   "id": 6,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 4,
+    "x": 16,
+    "y": 1
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "yellow",
+        "value": 0.25
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     },
+     "decimals": 3
+    },
+    "overrides": []
+   },
+   "options": {
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "none",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "histogram_quantile(0.99, sum by (le) (rate(auth_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
+     "legendFormat": "",
+     "range": true
+    }
+   ],
+   "description": "99th percentile end-to-end authentication latency across realms."
+  },
+  {
+   "type": "stat",
+   "title": "Provider error rate",
+   "id": 7,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 4,
+    "x": 20,
+    "y": 1
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "yellow",
+        "value": 0.01
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "area",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum(rate(auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\",result=\"error\"}[$__rate_interval]))",
+     "legendFormat": "",
+     "range": true
+    }
+   ],
+   "description": "Provider-level hard errors per second (upstream/provider failures, not credential rejections)."
+  },
+  {
+   "type": "row",
+   "title": "Authentication (RED)",
+   "id": 8,
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 5
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "Auth rate by result",
+   "id": 9,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 6
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum by (result) (rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "legendFormat": "{{result}}",
+     "range": true
+    }
+   ],
+   "description": "Request throughput split by outcome. success vs all_failed/invalid_header/no_auth_header."
+  },
+  {
+   "type": "timeseries",
+   "title": "Auth failure ratio by realm",
+   "id": 10,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 8,
+    "y": 6
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "unknown": {
+         "text": "unresolved (pre-auth/failed)",
+         "index": 0
+        }
+       }
+      }
+     ]
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum by (realm) (rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\",result!=\"success\"}[$__rate_interval])) / clamp_min(sum by (realm) (rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])), 1e-9)",
+     "legendFormat": "{{realm}}",
+     "range": true
+    }
+   ],
+   "description": "Per-realm error ratio. A configured realm spiking while others stay flat isolates a broken provider/config. The 'unresolved (pre-auth/failed)' series is the synthetic realm=\"unknown\" bucket auth-o-tron records for requests that never resolved to a user (missing/invalid header, all providers rejected) - it is failures by definition, so it sits at 100%."
+  },
+  {
+   "type": "timeseries",
+   "title": "Auth latency quantiles",
+   "id": 11,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 6
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "histogram_quantile(0.50, sum by (le) (rate(auth_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
+     "legendFormat": "p50",
+     "range": true
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "histogram_quantile(0.90, sum by (le) (rate(auth_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
+     "legendFormat": "p90",
+     "range": true
+    },
+    {
+     "refId": "C",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "histogram_quantile(0.99, sum by (le) (rate(auth_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
+     "legendFormat": "p99",
+     "range": true
+    }
+   ],
+   "description": "End-to-end auth latency distribution. Divergence between p50 and p99 points to tail latency from a slow provider."
+  },
+  {
+   "type": "timeseries",
+   "title": "Auth rate per pod",
+   "id": 12,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 14
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum by (pod) (rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "legendFormat": "{{pod}}",
+     "range": true
+    }
+   ],
+   "description": "Per-pod throughput. Uneven lines mean Service load-balancing is skewed across replicas."
+  },
+  {
+   "type": "timeseries",
+   "title": "Auth p99 latency by realm",
+   "id": 13,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 8,
+    "y": 14
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "unknown": {
+         "text": "unresolved (pre-auth/failed)",
+         "index": 0
+        }
+       }
+      }
+     ]
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "histogram_quantile(0.99, sum by (le, realm) (rate(auth_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
+     "legendFormat": "{{realm}}",
+     "range": true
+    }
+   ],
+   "description": "Tail latency per realm. Isolates which configured realm's provider chain is slow. The 'unresolved (pre-auth/failed)' series is the synthetic realm=\"unknown\" bucket - failed requests still have a measured duration, so the failure path's latency shows up here."
+  },
+  {
+   "type": "timeseries",
+   "title": "Auth attempts by result (rate)",
+   "id": 14,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 14
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum by (result) (rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "legendFormat": "{{result}}",
+     "range": true
+    }
+   ],
+   "description": "Outcome breakdown over time. Rising no_auth_header/invalid_header often means a misconfigured client, not an outage."
+  },
+  {
+   "type": "row",
+   "title": "Providers",
+   "id": 15,
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 22
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "Provider attempts by type",
+   "id": 16,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 23
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum by (provider_type) (rate(auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "legendFormat": "{{provider_type}}",
+     "range": true
+    }
+   ],
+   "description": "Attempts per second per provider type (Basic, etc.). Shows which auth backends carry the load."
+  },
+  {
+   "type": "timeseries",
+   "title": "Provider outcomes",
+   "id": 17,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 8,
+    "y": 23
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum by (result) (rate(auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "legendFormat": "{{result}}",
+     "range": true
+    }
+   ],
+   "description": "success vs error vs timeout per second. Timeouts indicate a slow/unreachable upstream provider."
+  },
+  {
+   "type": "timeseries",
+   "title": "Provider error+timeout ratio",
+   "id": 18,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 23
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum by (provider_name) (rate(auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\",result=~\"error|timeout\"}[$__rate_interval])) / clamp_min(sum by (provider_name) (rate(auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])), 1e-9)",
+     "legendFormat": "{{provider_name}}",
+     "range": true
+    }
+   ],
+   "description": "Reliability per named provider. Excludes plain credential rejections (those are success/auth-level results)."
+  },
+  {
+   "type": "timeseries",
+   "title": "Provider latency p99 by name",
+   "id": 19,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 31
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "histogram_quantile(0.99, sum by (le, provider_name) (rate(auth_provider_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
+     "legendFormat": "{{provider_name}}",
+     "range": true
+    }
+   ],
+   "description": "Per-provider p99. The dominant contributor here usually explains overall auth tail latency."
+  },
+  {
+   "type": "timeseries",
+   "title": "Provider throughput by name",
+   "id": 20,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 12,
+    "y": 31
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum by (provider_name) (rate(auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "legendFormat": "{{provider_name}}",
+     "range": true
+    }
+   ],
+   "description": "Attempts per second per named provider."
+  },
+  {
+   "type": "row",
+   "title": "Augmenters",
+   "id": 21,
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 39
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "Augmenter attempts by outcome",
+   "id": 22,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 40
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum by (result) (rate(augmenter_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "legendFormat": "{{result}}",
+     "range": true
+    }
+   ],
+   "description": "Role/identity augmentation executions per second by success/error."
+  },
+  {
+   "type": "timeseries",
+   "title": "Augmenter error ratio by name",
+   "id": 23,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 8,
+    "y": 40
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum by (augmenter_name) (rate(augmenter_attempts_total{namespace=~\"$namespace\",job=~\"$job\",result=\"error\"}[$__rate_interval])) / clamp_min(sum by (augmenter_name) (rate(augmenter_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])), 1e-9)",
+     "legendFormat": "{{augmenter_name}}",
+     "range": true
+    }
+   ],
+   "description": "Per-augmenter failure ratio. A failing augmenter degrades enrichment even when auth itself succeeds."
+  },
+  {
+   "type": "timeseries",
+   "title": "Augmenter latency p99 by type",
+   "id": 24,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 40
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "histogram_quantile(0.99, sum by (le, augmenter_type) (rate(augmenter_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
+     "legendFormat": "{{augmenter_type}}",
+     "range": true
+    }
+   ],
+   "description": "Augmentation tail latency by type. Adds to total auth latency since it runs in the request path."
+  },
+  {
+   "type": "row",
+   "title": "API (RED)",
+   "id": 25,
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 48
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "HTTP request rate by route",
+   "id": 26,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 49
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum by (route) (rate(authotron_http_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "legendFormat": "{{route}}",
+     "range": true
+    }
+   ],
+   "description": "HTTP throughput per matched route (/authenticate, /, /metrics health, etc.). route=\"unmatched\" collects path scans (404s)."
+  },
+  {
+   "type": "timeseries",
+   "title": "HTTP error ratio (5xx)",
+   "id": 27,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 8,
+    "y": 49
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum(rate(authotron_http_requests_total{namespace=~\"$namespace\",job=~\"$job\",status_code=~\"5..\"}[$__rate_interval])) / clamp_min(sum(rate(authotron_http_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])), 1e-9)",
+     "legendFormat": "5xx ratio",
+     "range": true
+    }
+   ],
+   "description": "Share of responses that are server errors (5xx). Distinct from auth rejections, which are 401s on the auth panels - a 5xx spike means the service itself is failing (panics, render errors)."
+  },
+  {
+   "type": "timeseries",
+   "title": "HTTP latency p99 by route",
+   "id": 28,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 49
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "histogram_quantile(0.99, sum by (le, route) (rate(authotron_http_request_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
+     "legendFormat": "{{route}}",
+     "range": true
+    }
+   ],
+   "description": "Transport-layer tail latency per route, measured until the response is produced. Complements the auth-domain latency panels with the full HTTP picture."
+  },
+  {
+   "type": "timeseries",
+   "title": "HTTP requests by status code",
+   "id": 29,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 57
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "spanNulls": false,
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum by (status_code) (rate(authotron_http_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "legendFormat": "{{status_code}}",
+     "range": true
+    }
+   ],
+   "description": "Response status mix over time. A rising 401 line tracks bad-credential traffic; 404 tracks scans; 5xx tracks faults."
+  },
+  {
+   "type": "timeseries",
+   "title": "HTTP in-flight by method",
+   "id": 30,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 8,
+    "y": 57
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum by (method) (authotron_http_requests_in_flight{namespace=~\"$namespace\",job=~\"$job\"})",
+     "legendFormat": "{{method}}",
+     "range": true
+    }
+   ],
+   "description": "Requests currently being processed, by method. A climbing line under flat throughput means requests are piling up (slow provider/upstream stall)."
+  },
+  {
+   "type": "timeseries",
+   "title": "HTTP request rate per pod",
+   "id": 31,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 57
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "sum by (pod) (rate(authotron_http_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "legendFormat": "{{pod}}",
+     "range": true
+    }
+   ],
+   "description": "Per-pod HTTP throughput. Uneven lines mean Service load-balancing is skewed across replicas."
+  },
+  {
+   "type": "row",
+   "title": "Runtime",
+   "id": 32,
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 65
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "CPU per pod",
+   "id": 33,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 66
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     },
+     "decimals": 3
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "rate(process_cpu_seconds_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])",
+     "legendFormat": "{{pod}}",
+     "range": true
+    }
+   ],
+   "description": "Process CPU cores per pod (Linux process collector). Sustained climb under flat traffic suggests a regression."
+  },
+  {
+   "type": "timeseries",
+   "title": "Resident memory per pod",
+   "id": 34,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 8,
+    "y": 66
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "process_resident_memory_bytes{namespace=~\"$namespace\",job=~\"$job\"}",
+     "legendFormat": "{{pod}}",
+     "range": true
+    }
+   ],
+   "description": "RSS per pod. A monotonic upward slope across the window is the classic leak signature."
+  },
+  {
+   "type": "timeseries",
+   "title": "Open file descriptors per pod",
+   "id": 35,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 66
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "process_open_fds{namespace=~\"$namespace\",job=~\"$job\"}",
+     "legendFormat": "{{pod}}",
+     "range": true
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "process_max_fds{namespace=~\"$namespace\",job=~\"$job\"}",
+     "legendFormat": "max {{pod}}",
+     "range": true
+    }
+   ],
+   "description": "Open vs max FDs. Approaching the max precedes 'too many open files' errors (leaked sockets/connections)."
+  },
+  {
+   "type": "timeseries",
+   "title": "OS threads per pod",
+   "id": 36,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 57
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "process_threads{namespace=~\"$namespace\",job=~\"$job\"}",
+     "legendFormat": "{{pod}}",
+     "range": true
+    }
+   ],
+   "description": "Thread count per pod. Unbounded growth points to a thread/runtime leak."
+  },
+  {
+   "type": "timeseries",
+   "title": "Virtual memory per pod",
+   "id": 37,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 8,
+    "y": 57
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": false
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "process_virtual_memory_bytes{namespace=~\"$namespace\",job=~\"$job\"}",
+     "legendFormat": "{{pod}}",
+     "range": true
+    }
+   ],
+   "description": "Virtual address space per pod."
+  },
+  {
+   "type": "stat",
+   "title": "Uptime (min pod)",
+   "id": 38,
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 8,
+    "x": 16,
+    "y": 57
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s"
+    },
+    "overrides": []
+   },
+   "options": {
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "area",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "expr": "min(time() - process_start_time_seconds{namespace=~\"$namespace\",job=~\"$job\"})",
+     "legendFormat": "",
+     "range": true
+    }
+   ],
+   "description": "Time since the youngest pod started. Drops to ~0 on every deploy/restart (see Deploy annotations)."
+  }
+ ]
+}
