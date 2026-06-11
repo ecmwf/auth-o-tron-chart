@@ -26,7 +26,7 @@ metrics:
 # -- Container image settings
 image:
   repository: eccr.ecmwf.int/auth-o-tron/auth-o-tron
-  tag: 0.3.5
+  tag: 0.3.6
   pullPolicy: IfNotPresent
 
 # -- Credentials for pulling from a private registry.

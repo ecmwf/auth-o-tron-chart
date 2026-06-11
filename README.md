@@ -27,7 +27,7 @@ All configuration is done through `values.yaml`. See below for key settings.
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `image.repository` | Container image repository | `eccr.ecmwf.int/auth-o-tron/auth-o-tron` |
-| `image.tag` | Image tag | `0.3.1` |
+| `image.tag` | Image tag | `0.3.6` |
 | `image.pullPolicy` | Pull policy | `IfNotPresent` |
 
 ### Service
