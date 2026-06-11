@@ -1,4 +1,4 @@
-![Auth-O-Tron](https://raw.githubusercontent.com/ecmwf/auth-o-tron/main/docs/logo-light.png)
+![Auth-O-Tron](https://raw.githubusercontent.com/ecmwf/auth-o-tron/main/authotron/docs/logo-light.png)
 
 <div align="center">
 
