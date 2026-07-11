@@ -248,7 +248,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "sum(rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "expr": "sum(rate(authotron_auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
      "legendFormat": "",
      "range": true
     }
@@ -312,7 +312,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "sum(rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\",result!=\"success\"}[$__rate_interval])) / clamp_min(sum(rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])), 1e-9)",
+     "expr": "sum(rate(authotron_auth_requests_total{namespace=~\"$namespace\",job=~\"$job\",result!=\"success\"}[$__rate_interval])) / clamp_min(sum(rate(authotron_auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])), 1e-9)",
      "legendFormat": "",
      "range": true
     }
@@ -376,7 +376,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "histogram_quantile(0.99, sum by (le) (rate(auth_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
+     "expr": "histogram_quantile(0.99, sum by (le) (rate(authotron_auth_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
      "legendFormat": "",
      "range": true
     }
@@ -439,7 +439,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "sum(rate(auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\",result=\"error\"}[$__rate_interval]))",
+     "expr": "sum(rate(authotron_auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\",result=\"error\"}[$__rate_interval]))",
      "legendFormat": "",
      "range": true
     }
@@ -508,7 +508,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "sum by (result) (rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "expr": "sum by (result) (rate(authotron_auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
      "legendFormat": "{{result}}",
      "range": true
     }
@@ -571,7 +571,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "sum by (realm) (rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\",result!=\"success\"}[$__rate_interval])) / clamp_min(sum by (realm) (rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])), 1e-9)",
+     "expr": "sum by (realm) (rate(authotron_auth_requests_total{namespace=~\"$namespace\",job=~\"$job\",result!=\"success\"}[$__rate_interval])) / clamp_min(sum by (realm) (rate(authotron_auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])), 1e-9)",
      "legendFormat": "{{realm}}",
      "range": true
     }
@@ -623,7 +623,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "histogram_quantile(0.50, sum by (le) (rate(auth_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
+     "expr": "histogram_quantile(0.50, sum by (le) (rate(authotron_auth_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
      "legendFormat": "p50",
      "range": true
     },
@@ -633,7 +633,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "histogram_quantile(0.90, sum by (le) (rate(auth_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
+     "expr": "histogram_quantile(0.90, sum by (le) (rate(authotron_auth_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
      "legendFormat": "p90",
      "range": true
     },
@@ -643,7 +643,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "histogram_quantile(0.99, sum by (le) (rate(auth_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
+     "expr": "histogram_quantile(0.99, sum by (le) (rate(authotron_auth_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
      "legendFormat": "p99",
      "range": true
     }
@@ -695,7 +695,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "sum by (pod) (rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "expr": "sum by (pod) (rate(authotron_auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
      "legendFormat": "{{pod}}",
      "range": true
     }
@@ -758,7 +758,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "histogram_quantile(0.99, sum by (le, realm) (rate(auth_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
+     "expr": "histogram_quantile(0.99, sum by (le, realm) (rate(authotron_auth_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
      "legendFormat": "{{realm}}",
      "range": true
     }
@@ -810,7 +810,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "sum by (result) (rate(auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "expr": "sum by (result) (rate(authotron_auth_requests_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
      "legendFormat": "{{result}}",
      "range": true
     }
@@ -879,7 +879,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "sum by (provider_type) (rate(auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "expr": "sum by (provider_type) (rate(authotron_auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
      "legendFormat": "{{provider_type}}",
      "range": true
     }
@@ -935,7 +935,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "sum by (result) (rate(auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "expr": "sum by (result) (rate(authotron_auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
      "legendFormat": "{{result}}",
      "range": true
     }
@@ -987,7 +987,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "sum by (provider_name) (rate(auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\",result=~\"error|timeout\"}[$__rate_interval])) / clamp_min(sum by (provider_name) (rate(auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])), 1e-9)",
+     "expr": "sum by (provider_name) (rate(authotron_auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\",result=~\"error|timeout\"}[$__rate_interval])) / clamp_min(sum by (provider_name) (rate(authotron_auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])), 1e-9)",
      "legendFormat": "{{provider_name}}",
      "range": true
     }
@@ -1039,7 +1039,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "histogram_quantile(0.99, sum by (le, provider_name) (rate(auth_provider_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
+     "expr": "histogram_quantile(0.99, sum by (le, provider_name) (rate(authotron_auth_provider_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
      "legendFormat": "{{provider_name}}",
      "range": true
     }
@@ -1091,7 +1091,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "sum by (provider_name) (rate(auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "expr": "sum by (provider_name) (rate(authotron_auth_provider_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
      "legendFormat": "{{provider_name}}",
      "range": true
     }
@@ -1160,7 +1160,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "sum by (result) (rate(augmenter_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
+     "expr": "sum by (result) (rate(authotron_augmenter_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval]))",
      "legendFormat": "{{result}}",
      "range": true
     }
@@ -1212,7 +1212,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "sum by (augmenter_name) (rate(augmenter_attempts_total{namespace=~\"$namespace\",job=~\"$job\",result=\"error\"}[$__rate_interval])) / clamp_min(sum by (augmenter_name) (rate(augmenter_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])), 1e-9)",
+     "expr": "sum by (augmenter_name) (rate(authotron_augmenter_attempts_total{namespace=~\"$namespace\",job=~\"$job\",result=\"error\"}[$__rate_interval])) / clamp_min(sum by (augmenter_name) (rate(authotron_augmenter_attempts_total{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])), 1e-9)",
      "legendFormat": "{{augmenter_name}}",
      "range": true
     }
@@ -1264,7 +1264,7 @@
       "type": "prometheus",
       "uid": "${datasource}"
      },
-     "expr": "histogram_quantile(0.99, sum by (le, augmenter_type) (rate(augmenter_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
+     "expr": "histogram_quantile(0.99, sum by (le, augmenter_type) (rate(authotron_augmenter_duration_seconds_bucket{namespace=~\"$namespace\",job=~\"$job\"}[$__rate_interval])))",
      "legendFormat": "{{augmenter_type}}",
      "range": true
     }
