@@ -63,6 +63,92 @@ def image_tag(path: Path) -> str:
     raise ValueError(f"could not find image.tag in {path}")
 
 
+LABEL_MATCHER_RE = re.compile(
+    r'\s*([A-Za-z_][A-Za-z0-9_]*)\s*(=~|!~|!=|=)\s*("(?:\\.|[^"\\])*")\s*(?:,|$)'
+)
+NAME_REGEX_UNION_RE = re.compile(r'__name__\s*=~\s*"[^"]*\|[^"]*"')
+REQUIRED_SCOPE_MATCHERS = {
+    ("namespace", "=~", '"$namespace"'),
+    ("job", "=~", '"$job"'),
+}
+
+
+def label_matchers(selector: str) -> tuple[tuple[str, str, str], ...]:
+    matchers: list[tuple[str, str, str]] = []
+    position = 0
+    while position < len(selector):
+        matcher = LABEL_MATCHER_RE.match(selector, position)
+        if not matcher:
+            raise ValueError(f"could not parse selector labels {selector!r}")
+        matchers.append((matcher.group(1), matcher.group(2), matcher.group(3)))
+        position = matcher.end()
+    return tuple(sorted(matchers))
+
+
+def fallback_pattern(new_name: str, legacy_name: str) -> re.Pattern[str]:
+    return re.compile(
+        rf"""
+        rate\(\s*{re.escape(new_name)}
+        \{{(?P<new_labels>[^{{}}]*)\}}
+        \[(?P<new_range>[^\[\]]+)\]\s*\)
+        \s+or\s+
+        rate\(\s*{re.escape(legacy_name)}
+        \{{(?P<legacy_labels>[^{{}}]*)\}}
+        \[(?P<legacy_range>[^\[\]]+)\]\s*\)
+        """,
+        re.VERBOSE,
+    )
+
+
+def validate_fallback(
+    path: str,
+    expression: str,
+    new_name: str,
+    legacy_name: str,
+    match: re.Match[str],
+    errors: list[str],
+) -> None:
+    try:
+        new_labels = label_matchers(match.group("new_labels"))
+        legacy_labels = label_matchers(match.group("legacy_labels"))
+    except ValueError as error:
+        errors.append(f"{path}: {error}")
+        return
+
+    if new_labels != legacy_labels:
+        errors.append(
+            f"{path}: {new_name} and {legacy_name} fallback selectors have "
+            "different labels"
+        )
+    if not REQUIRED_SCOPE_MATCHERS.issubset(new_labels):
+        errors.append(
+            f"{path}: {new_name} fallback must retain the namespace and job labels"
+        )
+    if match.group("new_range").strip() != match.group("legacy_range").strip():
+        errors.append(f"{path}: {new_name} and {legacy_name} use different ranges")
+
+    aggregation = re.search(
+        r"sum(?:\s+by\s*\((?P<grouping>[^)]*)\))?\s*\(\s*$",
+        expression[: match.start()],
+    )
+    if not aggregation or not re.match(r"\s*\)", expression[match.end() :]):
+        errors.append(
+            f"{path}: {new_name} or {legacy_name} must be the direct operand of "
+            "an enclosing sum"
+        )
+        return
+
+    if new_name.endswith("_bucket"):
+        grouping = aggregation.group("grouping")
+        grouping_labels = (
+            {label.strip() for label in grouping.split(",")} if grouping else set()
+        )
+        if "le" not in grouping_labels:
+            errors.append(
+                f"{path}: histogram fallback for {new_name} must be summed by le"
+            )
+
+
 def validate_migration(
     query_expressions: list[tuple[str, str]], chart: Path, values: Path
 ) -> None:
@@ -78,24 +164,38 @@ def validate_migration(
     errors: list[str] = []
 
     for path, expression in query_expressions:
+        if NAME_REGEX_UNION_RE.search(expression):
+            errors.append(
+                f"{path}: __name__ regex unions are not valid migration fallbacks"
+            )
+
         for new_name, legacy_name in METRIC_RENAMES:
-            selector = f'{{__name__=~"{new_name}|{legacy_name}"'
-            seen[(new_name, legacy_name)] += expression.count(selector)
-            remainder = expression.replace(selector, "")
+            matches = list(fallback_pattern(new_name, legacy_name).finditer(expression))
+            seen[(new_name, legacy_name)] += len(matches)
+            for match in matches:
+                validate_fallback(
+                    path, expression, new_name, legacy_name, match, errors
+                )
+
             for metric in (new_name, legacy_name):
-                if re.search(
-                    rf"(?<![A-Za-z0-9_:]){re.escape(metric)}(?![A-Za-z0-9_:])",
-                    remainder,
-                ):
-                    errors.append(
-                        f"{path}: {metric} is used outside its new-or-legacy selector"
-                    )
+                metric_pattern = re.compile(
+                    rf"(?<![A-Za-z0-9_:]){re.escape(metric)}(?![A-Za-z0-9_:])"
+                )
+                for metric_match in metric_pattern.finditer(expression):
+                    if not any(
+                        match.start() <= metric_match.start() < match.end()
+                        for match in matches
+                    ):
+                        errors.append(
+                            f"{path}: {metric} must be used in a new-first, "
+                            "label-matched rate(new) or rate(legacy) fallback"
+                        )
 
     if require_fallbacks:
         for pair, count in seen.items():
             if count == 0:
                 errors.append(
-                    f"missing migration selector for {pair[0]}|{pair[1]} while "
+                    f"missing migration fallback for {pair[0]} or {pair[1]} while "
                     f"the chart defaults to {LEGACY_DEFAULT_VERSION}"
                 )
     if errors:

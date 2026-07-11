@@ -32,10 +32,9 @@ jobs:
           archive="dashboard-linter_${DASHBOARD_LINTER_VERSION}_linux_amd64.tar.gz"
           curl -fsSL -o "${install_dir}/${archive}" \
             "https://github.com/grafana/dashboard-linter/releases/download/v${DASHBOARD_LINTER_VERSION}/${archive}"
-          curl -fsSL -o "${install_dir}/checksums.txt" \
-            "https://github.com/grafana/dashboard-linter/releases/download/v${DASHBOARD_LINTER_VERSION}/checksums.txt"
           cd "${install_dir}"
-          grep "  ${archive}$" checksums.txt | sha256sum --check --strict -
+          echo "6cf73633018ef705cd12eda88736b872f5858137baa9dc9df83262d721934fac  ${archive}" \
+            | sha256sum --check --strict -
           tar -xzf "${archive}"
           echo "DASHBOARD_LINTER=${install_dir}/dashboard-linter" >> "${GITHUB_ENV}"
 
