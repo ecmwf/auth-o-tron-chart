@@ -80,7 +80,6 @@ The `config` section is mounted as `config.yaml` in the container. Key fields:
 | `config.jwt.exp` | JWT expiry (seconds) | `3600` |
 | `config.jwt.secret` | JWT signing secret | `""` |
 | `config.providers` | Authentication providers | `[]` |
-| `config.store.enabled` | Enable token store | `false` |
 
 See the [Auth-O-Tron documentation](https://github.com/ecmwf/auth-o-tron/tree/main/docs) for full configuration reference.
 
@@ -91,7 +90,6 @@ See the [Auth-O-Tron documentation](https://github.com/ecmwf/auth-o-tron/tree/ma
 | `replicaCount` | Number of replicas | `1` |
 | `podAnnotations` | Pod annotations | `{}` |
 | `extraEnv` | Extra environment variables (for secrets via `secretKeyRef`) | `[]` |
-| `mongodb.enabled` | Deploy MongoDB subchart | `false` |
 | `pullSecret.enabled` | Create image pull secret | `false` |
 
 ## Examples

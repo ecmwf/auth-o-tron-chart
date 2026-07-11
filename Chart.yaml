@@ -27,18 +27,11 @@ description: |
   - Supports multiple authentication providers simultaneously.
   - Integrates with ingress-level auth redirection (e.g., nginx auth_request).
   - Proxies authenticated requests with JWTs for API access control.
-  - Manages scoped API tokens for secure, long-lived browserless access.
   - Role- and attribute-based access control for endpoints.
 
 type: application
 
-dependencies:
-  - name: mongodb
-    version: 16.4.2 # latest version as of 24-01-2025
-    repository: "https://charts.bitnami.com/bitnami"
-    condition: mongodb.enabled
-
-version: 0.3.4
+version: 0.4.0
 appVersion: 0.3.6
 
 maintainers:

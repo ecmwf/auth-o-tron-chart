@@ -4,10 +4,6 @@ nameOverride: "auth-o-tron"
 # -- Fully override the computed resource name (bypasses Release.Name and nameOverride)
 fullnameOverride: ""
 
-# -- MongoDB subchart toggle (see bitnami/mongodb for full options)
-mongodb:
-  enabled: false
-
 # -- Number of auth-o-tron pod replicas
 replicaCount: 1
 
@@ -90,21 +86,11 @@ config:
   # -- Authentication provider list (see auth-o-tron docs)
   providers: []
 
-  # -- Optional persistent token store (e.g. MongoDB)
-  store:
-    enabled: false
-    # type: "mongo"
-    # database: "tokens"
-    # uri: "mongodb://mongodb:27017"
-
   # -- JWT signing settings
   jwt:
     exp: 3600
     iss: ""
     secret: ""
-
-  # -- Downstream service definitions
-  services: []
 
   # -- Server bind settings (port must match service.targetPort)
   server:
