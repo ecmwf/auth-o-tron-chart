@@ -17,16 +17,9 @@ spec:
       labels:
         app.kubernetes.io/name: {{ include "name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
-      annotations:
-      {{- with .Values.podAnnotations }}
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-        checksum/config: {{ .Values | toYaml | sha256sum }}
+      annotations: {{ include "auth-o-tron.podAnnotations" . | nindent 8 }}
     spec:
-    {{- if .Values.pullSecret.enabled }}
-      imagePullSecrets:
-        - name: {{ include "fullname" . }}-pull-secret
-    {{- end }}
+      imagePullSecrets: {{ include "auth-o-tron.imagePullSecrets" . }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -34,15 +27,7 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - name: http-auth
-              containerPort: {{ .Values.service.targetPort }}
-              protocol: TCP
-          {{- if .Values.metrics.enabled }}
-            - name: http-metrics
-              containerPort: {{ .Values.metrics.port }}
-              protocol: TCP
-          {{- end }}
+          ports: {{ include "auth-o-tron.containerPorts" . | nindent 12 }}
           livenessProbe:
             httpGet:
               path: /health
@@ -55,10 +40,7 @@ spec:
               port: http-auth
             initialDelaySeconds: 3
             periodSeconds: 5
-          {{- with .Values.extraEnv }}
-          env:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+          env: {{ include "auth-o-tron.environment" . | nindent 12 }}
           volumeMounts:
             - name: config-volume
               mountPath: /app/config.yaml
@@ -69,7 +51,7 @@ spec:
       volumes:
         - name: config-volume
           configMap:
-            name: {{ include "fullname" . }}-config
+            name: {{ printf "%s-config" (include "fullname" .) | quote }}
             items:
               - key: config.yaml
                 path: config.yaml

@@ -20,10 +20,18 @@ metrics:
     scrapeTimeout: 10s
 
 # -- Container image settings
+# Auth-O-Tron 0.4.0 is pending release from upstream PR #84.
 image:
   repository: eccr.ecmwf.int/auth-o-tron/auth-o-tron
-  tag: 0.3.6
+  tag: 0.4.0
   pullPolicy: IfNotPresent
+
+# -- Existing Secret that owns the active RSA signing private key.
+# The chart references this Secret; it never creates it or copies its PEM into the ConfigMap.
+jwt:
+  privateKeySecret:
+    name: auth-o-tron-jwt
+    key: private-key.pem
 
 # -- Credentials for pulling from a private registry.
 # Enable and fill in imageCredentials to create an image pull secret.
@@ -39,14 +47,7 @@ pullSecret:
 podAnnotations: {}
 
 # -- Extra environment variables injected into the auth-o-tron container.
-# Use this to pass secrets via secretKeyRef instead of the ConfigMap.
-# Example:
-#   extraEnv:
-#     - name: MY_SECRET
-#       valueFrom:
-#         secretKeyRef:
-#           name: my-secret
-#           key: token
+# AOT_JWT__PRIVATE_KEY is reserved for jwt.privateKeySecret.
 extraEnv: []
 
 # -- Kubernetes Service configuration
@@ -86,11 +87,14 @@ config:
   # -- Authentication provider list (see auth-o-tron docs)
   providers: []
 
-  # -- JWT signing settings
+  # -- JWT signing settings. iss and kid must be set explicitly.
+  # aud defaults to the Polytope server consumer contract.
+  # The private key is injected separately from jwt.privateKeySecret.
   jwt:
     exp: 3600
     iss: ""
-    secret: ""
+    aud: polytope-server
+    kid: ""
 
   # -- Server bind settings (port must match service.targetPort)
   server:
