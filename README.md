@@ -121,6 +121,32 @@ Logo and sign-in URLs must be HTTPS absolute URLs without userinfo, or root-rela
 
 The current default image **`0.3.6` lacks the UI endpoints**. To test, override `image.repository` and `image.tag` with an image built from `feat/login-ui-shell`. An eventual released version containing the UI is required for released deployments.
 
+### Optional Valkey dependency
+
+`valkey.enabled` defaults to `false`. Enabling it does not enable the login UI.
+
+Pinned official chart: [`valkey` 0.12.0](https://github.com/valkey-io/valkey-helm/releases/tag/valkey-0.12.0),
+repository [`https://valkey.io/valkey-helm/`](https://valkey.io/valkey-helm/index.yaml),
+app/image `docker.io/valkey/valkey:9.1.2`. The vendored archive's SHA-256 matches
+the public index:
+`64d43433d6b80addb012dd7c21a1bf674bf034dc51210b6bf8eae9ddaf83740f`.
+`Chart.lock` records both dependencies; MongoDB remains Bitnami **16.4.2**.
+No Bitnami Valkey scripts or image substitution are used.
+
+Verified live on 2026-10-10: official project repository ownership and recent
+maintenance, versioned Helm metadata/package, Docker Hub active image tag,
+[`9.1` image Dockerfile](https://github.com/valkey-io/valkey-container/blob/mainline/9.1/debian/Dockerfile)
+and [entrypoint](https://github.com/valkey-io/valkey-container/blob/mainline/docker-entrypoint.sh).
+The dependency explicitly runs its own `/scripts/init.sh` in the official image
+and `valkey-server /data/conf/valkey.conf`, rather than relying on the image's
+`tini -- docker-entrypoint.sh` entrypoint. Secret contents are read from mounted
+files; init logging reports credential source, not password values.
+
+The chart and container packaging are BSD-3-Clause; Valkey declares BSD-3-Clause
+(container OS/dependencies have their own licenses). The upstream chart archive
+omits its license file, so its exact version's notice is retained separately in
+[`VALKEY-LICENSE.txt`](VALKEY-LICENSE.txt). Auth-O-Tron's chart remains Apache-2.0.
+
 ### Other
 
 | Parameter | Description | Default |
