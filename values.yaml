@@ -87,6 +87,9 @@ config:
     level: info
     format: json
 
+  # -- ConfigV2 login UI overrides. The application supplies all UI defaults.
+  ui: {}
+
   # -- Authentication provider list (see auth-o-tron docs)
   providers: []
 

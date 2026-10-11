@@ -84,6 +84,43 @@ The `config` section is mounted as `config.yaml` in the container. Key fields:
 
 See the [Auth-O-Tron documentation](https://github.com/ecmwf/auth-o-tron/tree/main/docs) for full configuration reference.
 
+### Login UI
+
+ConfigV2 only (`config.version: "2.0.0"`); v1 migration defaults the UI to disabled. The ConfigMap serializes `config` for the application.
+
+The chart sets `config.ui: {}` so application defaults have a single source of
+truth. The defaults in the table below are supplied by the application, not
+duplicated in `values.yaml`.
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `config.ui.enabled` | Enable the branding-only preview and stylesheet | `false` |
+| `config.ui.branding.application_name` | Plain-text application name | `"Auth-O-Tron"` |
+| `config.ui.branding.logo_url` | Optional validated HTTPS absolute URL or root-relative path | `null` |
+| `config.ui.branding.title` | Escaped plain-text title; null/blank renders `Sign in to {application_name}` | `null` |
+| `config.ui.branding.description` | Escaped plain-text description; omitted when null/blank | `null` |
+| `config.ui.sign_in_actions` | Configured `{label, start_url}` browser-client login links | `[]` |
+| `config.ui.ecmwf_api_key` | Optional direct ECMWF login settings: unique `provider_name` | omitted |
+| `config.ui.basic` | Optional direct Basic login settings: unique `provider_name` | omitted |
+| `config.ui.browser_session` | Shared direct-login origin, expiry, bounds and backend settings (below) | omitted |
+
+With no actions or direct login, the page remains a **branding preview**. Configured actions navigate to trusted application-owned browser login start endpoints; their browser client/identity provider implements OAuth/OIDC and registers its callback separately. The entry page is not an OAuth authorization server. `GET /login` and `GET /static/login.css` require no authentication and exist only when enabled, on the main application port. If ingress paths are restricted, route both paths. Existing `/` and `/authenticate` behavior is unchanged. The footer is fixed to [Powered by Auth-O-Tron](https://github.com/ecmwf/auth-o-tron).
+
+Direct Basic and ECMWF API-key login are separate opt-in paths, independent of
+OIDC. They require `config.ui.browser_session` with an explicit backend and
+HTTPS `public_origin`, and create a short-lived Auth-O-Tron identity-view session
+after verification. Route `/login/basic`, `/login/ecmwf-api-key` (for configured
+providers), `/login/account` and `/login/logout` too. This is not an Aviso
+application callback or automatic bearer-API authentication; the Auth-O-Tron
+token store remains unused. Preview behavior applies only when neither actions
+nor direct login are configured.
+
+The page links to origin-root `/static/login.css` and `/favicon.ico` assets. Prefix-rewriting ingresses must also route those root paths; the preview has no configurable base path.
+
+Logo and sign-in URLs must be HTTPS absolute URLs without userinfo, or root-relative paths starting with `/` but not `//`; backslashes, control characters, and whitespace are forbidden. Invalid values or schemes reject the configuration. Sign-in labels must not be blank. Destinations come only from operator configuration, not request callback/return parameters. A root-relative logo must already be served by your origin or ingress; the server does not fetch URLs or read arbitrary local files. Mounted-logo assets and color settings are not implemented.
+
+The current default image **`0.3.6` lacks the UI endpoints**. To test, override `image.repository` and `image.tag` with an image built from `feat/login-ui-shell`. An eventual released version containing the UI is required for released deployments.
+
 ### Other
 
 | Parameter | Description | Default |
@@ -129,6 +166,29 @@ ingress:
       hosts:
         - auth.example.com
 ```
+
+### Aviso-branded login preview
+
+Use these values with a feature-branch image (replace the illustrative image repository and tag with your built image):
+
+```yaml
+image:
+  repository: your-registry/auth-o-tron
+  tag: login-ui-shell
+config:
+  version: "2.0.0"
+  ui:
+    enabled: true
+    branding:
+      application_name: "Aviso"
+      logo_url: null
+      title: null
+      description: "Aviso sign-in preview"
+```
+
+When using this chart as a subchart, place the values above under `<dependency-name-or-alias>` in the parent's values file: use the dependency's `alias` from the parent's `Chart.yaml` if set, otherwise its dependency `name`. Put both `image` and `config` inside that key; the example above shows the inner values, not the parent wrapper.
+
+Environment overrides also work through `extraEnv`, including `AOT_UI__ENABLED` and `AOT_UI__BRANDING__APPLICATION_NAME`.
 
 ### Passing secrets via environment
 
