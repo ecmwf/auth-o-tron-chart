@@ -342,6 +342,27 @@ The chart and container packaging are BSD-3-Clause; Valkey declares BSD-3-Clause
 omits its license file, so its exact version's notice is retained separately in
 [`VALKEY-LICENSE.txt`](VALKEY-LICENSE.txt). Auth-O-Tron's chart remains Apache-2.0.
 
+Offline checks (Helm 3.7+ or Helm 4, and Python/PyYAML required):
+
+```bash
+python3 tests/render_contract.py
+HELM_CACHE_HOME=/tmp/opencode/authotron-valkey-helm-cache \
+HELM_CONFIG_HOME=/tmp/opencode/authotron-valkey-helm-config \
+HELM_DATA_HOME=/tmp/opencode/authotron-valkey-helm-data helm lint --strict .
+```
+
+Contracts cover defaults/disabled, the five-resource ingress preview, API-only
+bundled Valkey, direct Basic bundled state, external primary, memory replica
+rejection, duplicate password env and credential leakage rejection, all numeric
+schema boundaries, required/tag-specific fields, prefix alphabet/length,
+namespace and same-parent alias isolation, stable prefixes across TTL/replica
+changes, helper naming/overrides/long-name rejection, policy selectors, parent
+alias scoping, HPA targets/prerequisites/replica ownership, shared-cap bounds,
+vendor checksum and lock.
+They render only and do not contact Kubernetes. Preview renderers that rewrite
+the application Pod must copy the Secret reference explicitly for a direct-login
+profile; merely inheriting chart configuration does not inject Pod environment.
+
 ### Horizontal scaling and browser verification capacity
 
 The chart supports an optional **application-only** `autoscaling/v2`
