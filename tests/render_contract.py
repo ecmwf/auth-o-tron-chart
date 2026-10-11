@@ -650,7 +650,7 @@ class Contracts(unittest.TestCase):
             parent = Path(tmp)
             (parent / "charts").mkdir()
             (parent / "Chart.yaml").write_text(
-                "apiVersion: v2\nname: parent\nversion: 1.0.0\ndependencies:\n- name: auth-o-tron-chart\n  alias: gateway\n  version: 0.3.4\n"
+                "apiVersion: v2\nname: parent\nversion: 1.0.0\ndependencies:\n- name: auth-o-tron-chart\n  alias: gateway\n  version: 0.4.0\n"
             )
             subprocess.run(
                 [
@@ -688,7 +688,7 @@ class Contracts(unittest.TestCase):
             # Two instances in one parent release share an external primary but
             # must not share a default browser namespace, even with equal fullnames.
             (parent / "Chart.yaml").write_text(
-                "apiVersion: v2\nname: parent\nversion: 1.0.0\ndependencies:\n- name: auth-o-tron-chart\n  alias: gateway\n  version: 0.3.4\n- name: auth-o-tron-chart\n  alias: second\n  version: 0.3.4\n"
+                "apiVersion: v2\nname: parent\nversion: 1.0.0\ndependencies:\n- name: auth-o-tron-chart\n  alias: gateway\n  version: 0.4.0\n- name: auth-o-tron-chart\n  alias: second\n  version: 0.4.0\n"
             )
             values["valkey"] = {"enabled": False}
             values["config"] = {"ui": copy.deepcopy(DIRECT)}
