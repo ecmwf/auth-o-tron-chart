@@ -38,8 +38,11 @@
 {{- if and (or $ui.ecmwf_api_key $ui.basic) (not $backend.type) -}}
   {{- fail "direct browser login requires config.ui.browser_session.backend.type" -}}
 {{- end -}}
-{{- if and (eq $backend.type "memory") (gt (int .Values.replicaCount) 1) -}}
+{{- if and (eq $backend.type "memory") (not .Values.autoscaling.enabled) (gt (int .Values.replicaCount) 1) -}}
   {{- fail "memory browser sessions require replicaCount: 1; use valkey for shared state" -}}
+{{- end -}}
+{{- if and (eq $backend.type "memory") .Values.autoscaling.enabled (gt (int .Values.autoscaling.maxReplicas) 1) -}}
+  {{- fail "memory browser sessions require autoscaling.maxReplicas: 1; use valkey for shared state" -}}
 {{- end -}}
 {{- if .Values.valkey.enabled -}}
   {{- $v := .Subcharts.valkey.Values -}}

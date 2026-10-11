@@ -74,8 +74,23 @@ valkey:
       tcpSocket:
         port: tcp
 
-# -- Number of auth-o-tron pod replicas
+# -- Static auth-o-tron replicas; ignored when autoscaling.enabled is true.
 replicaCount: 1
+
+# -- Application container resources. CPU HPA requires a positive requests.cpu.
+resources: {}
+
+# -- Optional application HPA; does not scale Valkey or install metrics adapters.
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  # -- CPU percentage (1..100); set null for custom-metric-only scaling.
+  targetCPUUtilizationPercentage: 70
+  # -- Optional Pods AverageValue target (1..256) for
+  # authotron_browser_logins_inflight. Requires an external custom metrics adapter.
+  # Requires enabled UI/direct login, and must be below max_inflight_logins (default 8).
+  targetInFlightLogins: null
 
 # -- Metrics server and Prometheus scraping configuration.
 # When enabled, a dedicated metrics/health server runs on metrics.port.

@@ -228,7 +228,8 @@ URL and the default hashed prefix are generated before application serialization
 an external-primary URL is required by template validation. The actual password
 field is supplied by the Secret environment override before runtime deserialization.
 
-`memory` sessions require `replicaCount: 1`; restart clears state. More application
+`memory` sessions require `replicaCount: 1` for static deployments, or HPA
+`minReplicas: 1` and `maxReplicas: 1`; restart clears state. More application
 replicas can share Valkey, but that does not make the single bundled Valkey HA.
 Runtime environment overrides can bypass chart configuration checks; do not use
 them to change backend type, replica assumptions or the bundled service URL.
@@ -341,11 +342,167 @@ The chart and container packaging are BSD-3-Clause; Valkey declares BSD-3-Clause
 omits its license file, so its exact version's notice is retained separately in
 [`VALKEY-LICENSE.txt`](VALKEY-LICENSE.txt). Auth-O-Tron's chart remains Apache-2.0.
 
+### Horizontal scaling and browser verification capacity
+
+The chart supports an optional **application-only** `autoscaling/v2`
+HorizontalPodAutoscaler. With autoscaling enabled, Deployment `spec.replicas` is
+omitted and `replicaCount` is ignored, so HPA owns the replica count. With it
+disabled, the Deployment uses `replicaCount` as before. API-only deployments can
+use CPU HPA without UI or Valkey. Direct browser sessions spanning multiple pods
+require a Valkey backend; a memory backend cannot use HPA `maxReplicas > 1`.
+
+| Parameter | Default | Validation / prerequisite |
+|---|---|---|
+| `resources` | `{}` | Application container requests/limits, separate from `valkey.resources` |
+| `autoscaling.enabled` | `false` | Creates an HPA only when enabled |
+| `autoscaling.minReplicas` | `2` | Integer ≥1 and ≤maxReplicas |
+| `autoscaling.maxReplicas` | `10` | Integer ≥1 |
+| `autoscaling.targetCPUUtilizationPercentage` | `70` | Integer 1–100, or `null` to disable CPU target |
+| `autoscaling.targetInFlightLogins` | `null` | Optional integer 1–256, strictly below effective per-pod max_inflight_logins; requires enabled UI/direct login |
+
+At least one target must be configured when autoscaling is enabled. CPU scaling
+requires **metrics-server** (or a compatible resource metrics API) and an explicit
+positive application `resources.requests.cpu`. For this target the chart accepts
+decimal cores (`0.25`, `1`) or millicores (`250m`), and rejects missing/zero/invalid
+requests. It does not silently choose a CPU request: this value determines what
+70% utilization means. Other injected containers must have suitable CPU requests
+too. CPU scaling needs neither the application metrics endpoint nor Prometheus.
+
+#### Per-pod browser metric
+
+`autoscaling.targetInFlightLogins` uses HPA `Pods` / `AverageValue` with the exact
+metric name **`authotron_browser_logins_inflight`**. The corresponding backend
+feature build must expose this unlabeled application gauge: current in-flight
+direct Basic and ECMWF API-key verifications combined **on that pod**. Prometheus
+scraping supplies Kubernetes `namespace` and `pod` labels; the application gauge
+does not contain provider/user labels. It is not the global Valkey slot count,
+session count, request rate or configured concurrency limit.
+
+The gauge can be registered at zero even when direct login is inactive. Therefore
+this HPA target requires `config.ui.enabled: true` and at least one configured
+`config.ui.basic` or `config.ui.ecmwf_api_key` direct-login flow. UI disabled,
+branding-only and SSO-link-only configurations cannot use it; API-only CPU HPA
+remains supported.
+
+The target must be **strictly below** the effective
+`config.ui.browser_session.max_inflight_logins` (application default **8** when
+omitted). The gauge cannot exceed that per-pod bound, so an equal or larger
+target cannot drive useful scale-up. For example, target **4** is valid with the
+default cap 8, and target **32** with an explicit cap **64**. This structural
+check is only a minimum: leave comfortable headroom for HPA's default **10%**
+tolerance and sampling delay. A target just below the cap may still prevent
+scale-up within the tolerance band; prefer a comfortably lower value such as
+32/64 and tune from measurements.
+
+This target requires both `metrics.enabled: true` and
+`config.metrics.enabled: true`, with matching `metrics.port` and
+`config.metrics.port`. Configure Prometheus to scrape every application pod,
+through the existing ServiceMonitor or equivalent external scrape configuration.
+Then provide a **Prometheus Adapter or compatible custom metrics adapter** that
+exposes this series through `custom.metrics.k8s.io` for the target namespace's
+Pods under the same name. An exporter or ServiceMonitor alone does not make a
+metric available to HPA. The chart does not install an adapter or verify that
+the external metrics APIs are healthy.
+
+For example, the operator's Prometheus Adapter rule can map the scrape labels
+to Kubernetes resources as follows (part of adapter configuration, **not**
+Auth-O-Tron chart values):
+
+```yaml
+rules:
+  custom:
+    - seriesQuery: 'authotron_browser_logins_inflight{namespace!="",pod!=""}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      name:
+        matches: '^authotron_browser_logins_inflight$'
+        as: authotron_browser_logins_inflight
+      metricsQuery: 'max by (<<.GroupBy>>) (<<.Series>>{<<.LabelMatchers>>})'
+```
+
+Keep one current value per pod; do not sum duplicated scrape targets or sum all
+pods into a deployment-wide metric for this `Pods` target. Check the adapter's
+namespace/Pod mapping against actual scrape labels. Set
+`targetCPUUtilizationPercentage: null` for custom-only scaling without a CPU
+request requirement. With both targets configured, HPA uses the largest replica
+recommendation, subject to its normal missing-metric and stabilization behavior.
+
+#### Concurrency, rate quotas and expiry
+
+In the backend feature build implementing this interface,
+`config.ui.browser_session.max_inflight_logins` is a **per-pod** admission bound
+(default 8). More application pods add verification slots. Optional
+`max_shared_inflight_logins` imposes a separate Valkey-backed shared cap across
+pods for the logical deployment/key prefix; absent or `null` disables it. A
+global cap can intentionally constrain the useful concurrency gained from HPA
+and should be set according to upstream provider budgets. Configure it with a
+Valkey backend. The shared `max_logins_per_window` quota remains independent of
+these concurrency limits and is not multiplied by adding replicas.
+Optional shared caps and shared quotas can limit admitted work and suppress the
+per-pod signal before its target is reached. Scaling does not circumvent either
+limit; align them with the intended capacity and provider budget.
+
+`session_ttl_seconds` is an **absolute lifetime**, not a sliding activity expiry;
+`transaction_ttl_seconds` bounds form transactions. Neither setting adds a new
+verification budget or resets a shared rate quota on browser activity. Keep
+expiry, state capacity, provider deadlines, per-pod slots, optional shared cap
+and rate limits aligned. Existing secret wiring, hashed state namespaces and
+ephemeral-backend logout behavior continue to apply.
+
+#### Illustrative production tuning profile
+
+Merge this into the earlier direct-login profile using a feature image that
+implements the per-pod limit, optional shared cap and gauge. Keep the existing
+Valkey/Secret references, provider selection and HTTPS origin. This is a tuning
+starting point, **not evidence that the system can serve 10000 requests/minute**:
+
+```yaml
+resources:
+  requests:
+    cpu: 500m
+    memory: 256Mi
+  limits:
+    cpu: "2"
+    memory: 512Mi
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetInFlightLogins: null # Set e.g. 32 only after the custom adapter is ready.
+config:
+  ui:
+    browser_session:
+      max_inflight_logins: 64
+      max_shared_inflight_logins: null # No optional deployment-wide cap.
+      max_logins_per_window: 10000
+      rate_window_seconds: 60
+```
+
+The quota of 10000/minute permits attempts; it does not prove throughput. Measure
+verification latency, admission rejection rates, CPU/memory, provider throttling,
+adapter freshness and Valkey load before choosing targets. I/O-bound verification
+may saturate slots without high CPU, making the per-pod gauge useful once its
+adapter is available. HPA reacts after load appears and cannot replace admission
+limits or provider capacity planning.
+
+Two or more application replicas provide horizontal application capacity, but
+**the single bundled Valkey remains one non-HA backend**. Application HPA neither
+scales it nor removes its outage/restart exposure. Backend HA, persistence,
+failover to a writable primary and capacity planning are separate operator work.
+The default application image `0.3.6` lacks the shared-browser-state settings and
+gauge; do not use it for this direct-login/custom-metric profile. No 10000-request
+benchmark or cluster scaling exercise is performed by the offline chart tests.
+
 ### Other
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `replicaCount` | Number of replicas | `1` |
+| `replicaCount` | Static replicas; ignored with HPA enabled | `1` |
 | `podAnnotations` | Pod annotations | `{}` |
 | `extraEnv` | Extra environment variables (for secrets via `secretKeyRef`) | `[]` |
 | `mongodb.enabled` | Deploy MongoDB subchart | `false` |

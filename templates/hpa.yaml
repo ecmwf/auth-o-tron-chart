@@ -1,0 +1,65 @@
+{{- if .Values.autoscaling.enabled }}
+{{- $a := .Values.autoscaling }}
+{{- if gt (int $a.minReplicas) (int $a.maxReplicas) }}
+  {{- fail "autoscaling.minReplicas must not exceed autoscaling.maxReplicas" }}
+{{- end }}
+{{- if not (or $a.targetCPUUtilizationPercentage $a.targetInFlightLogins) }}
+  {{- fail "autoscaling requires a CPU or in-flight login metric target" }}
+{{- end }}
+{{- if $a.targetCPUUtilizationPercentage }}
+  {{- $cpu := dig "requests" "cpu" "" .Values.resources | toString }}
+  {{- if not (and (regexMatch "^[0-9]+(\\.[0-9]+)?m?$" $cpu) (regexMatch "[1-9]" $cpu)) }}
+    {{- fail "CPU autoscaling requires a positive application resources.requests.cpu (decimal cores or millicores)" }}
+  {{- end }}
+{{- end }}
+{{- if $a.targetInFlightLogins }}
+  {{- $ui := default dict .Values.config.ui }}
+  {{- if not (and $ui.enabled (or $ui.basic $ui.ecmwf_api_key)) }}
+    {{- fail "in-flight login autoscaling requires config.ui.enabled and a configured ui.basic or ui.ecmwf_api_key direct-login flow" }}
+  {{- end }}
+  {{- $session := default dict $ui.browser_session }}
+  {{- $cap := default 8 $session.max_inflight_logins }}
+  {{- if ge (int $a.targetInFlightLogins) (int $cap) }}
+    {{- fail "in-flight login autoscaling target must be strictly below effective browser_session.max_inflight_logins (default 8)" }}
+  {{- end }}
+  {{- if not (and .Values.metrics.enabled .Values.config.metrics.enabled) }}
+    {{- fail "in-flight login autoscaling requires metrics.enabled and config.metrics.enabled" }}
+  {{- end }}
+  {{- if ne (int .Values.metrics.port) (int .Values.config.metrics.port) }}
+    {{- fail "in-flight login autoscaling requires matching metrics.port and config.metrics.port" }}
+  {{- end }}
+{{- end }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "fullname" . }}
+  minReplicas: {{ $a.minReplicas }}
+  maxReplicas: {{ $a.maxReplicas }}
+  metrics:
+    {{- if $a.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $a.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if $a.targetInFlightLogins }}
+    - type: Pods
+      pods:
+        metric:
+          name: authotron_browser_logins_inflight
+        target:
+          type: AverageValue
+          averageValue: {{ $a.targetInFlightLogins | quote }}
+    {{- end }}
+{{- end }}
