@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "replicaCount": {"type": "integer", "minimum": 1},
+    "resources": {
+      "type": "object",
+      "properties": {
+        "requests": {"type": "object", "properties": {"cpu": {"type": ["string", "number"]}}},
+        "limits": {"type": "object"}
+      }
+    },
+    "autoscaling": {
+      "type": "object", "additionalProperties": false,
+      "required": ["enabled", "minReplicas", "maxReplicas"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "minReplicas": {"type": "integer", "minimum": 1},
+        "maxReplicas": {"type": "integer", "minimum": 1},
+        "targetCPUUtilizationPercentage": {"type": ["integer", "null"], "minimum": 1, "maximum": 100},
+        "targetInFlightLogins": {"type": ["integer", "null"], "minimum": 1, "maximum": 256}
+      }
+    },
+    "browserState": {
+      "type": "object", "additionalProperties": false,
+      "required": ["passwordSecret", "networkPolicy"],
+      "properties": {
+        "passwordSecret": {
+          "type": "object", "additionalProperties": false,
+          "required": ["name", "key"],
+          "properties": {
+            "name": {"type": "string", "pattern": "^$|^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$", "maxLength": 253},
+            "key": {"type": "string", "minLength": 1, "pattern": "^[a-zA-Z0-9._-]+$"}
+          }
+        },
+        "networkPolicy": {
+          "type": "object", "additionalProperties": false,
+          "properties": {"enabled": {"type": "boolean"}}
+        }
+      }
+    },
+    "valkey": {"type": "object", "properties": {"enabled": {"type": "boolean"}}},
+    "config": {
+      "type": "object",
+      "properties": {
+        "ui": {
+          "type": "object",
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "browser_session": {
+              "type": "object", "additionalProperties": false,
+              "required": ["public_origin", "backend"],
+              "properties": {
+                "public_origin": {"type": "string", "minLength": 1},
+                "session_ttl_seconds": {"type": "integer", "minimum": 60, "maximum": 86400},
+                "transaction_ttl_seconds": {"type": "integer", "minimum": 30, "maximum": 900},
+                "max_forms": {"type": "integer", "minimum": 1, "maximum": 100000},
+                "max_sessions": {"type": "integer", "minimum": 1, "maximum": 100000},
+                "max_forms_per_window": {"type": "integer", "minimum": 1, "maximum": 100000},
+                "max_logins_per_window": {"type": "integer", "minimum": 1, "maximum": 100000},
+                "rate_window_seconds": {"type": "integer", "minimum": 1, "maximum": 3600},
+                "max_inflight_logins": {"type": "integer", "minimum": 1, "maximum": 256},
+                "max_shared_inflight_logins": {"type": ["integer", "null"], "minimum": 1, "maximum": 65536},
+                "verification_timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 30},
+                "backend": {
+                  "type": "object",
+                  "oneOf": [
+                    {
+                      "additionalProperties": false, "required": ["type"],
+                      "properties": {"type": {"const": "memory"}}
+                    },
+                    {
+                      "additionalProperties": false, "required": ["type"],
+                      "properties": {
+                        "type": {"const": "valkey"},
+                        "url": {"type": "string"},
+                        "password": {"type": "string", "maxLength": 0},
+                        "key_prefix": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9:_-]+$"},
+                        "connect_timeout_ms": {"type": "integer", "minimum": 1, "maximum": 30000},
+                        "operation_timeout_ms": {"type": "integer", "minimum": 1, "maximum": 10000}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

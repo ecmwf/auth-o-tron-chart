@@ -5,4 +5,4 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   config.yaml: |
-    {{- .Values.config | toYaml | nindent 4 }}
+    {{- include "authotron.browserConfig" . | nindent 4 }}

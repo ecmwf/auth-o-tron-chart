@@ -1,0 +1,83 @@
+{{/* Hash a stable instance identity, independent of runtime limits and replicas. */}}
+{{- define "authotron.browserKeyPrefix" -}}
+{{- $identity := list .Release.Namespace .Release.Name .Chart.Name (include "fullname" .) -}}
+{{- printf "authotron:browser:v1:%s" ($identity | toJson | sha256sum | trunc 32) -}}
+{{- end -}}
+
+{{/* Validate before serialization; error messages never interpolate credentials. */}}
+{{- define "authotron.browserConfig" -}}
+{{- $config := deepCopy .Values.config -}}
+{{- $ui := default dict $config.ui -}}
+{{- $session := default dict $ui.browser_session -}}
+{{- $backend := default dict $session.backend -}}
+{{- $secret := .Values.browserState.passwordSecret -}}
+{{- if and (hasKey $ui "browser_session") (not (regexMatch "^https://[^/@?#\\\\[:space:][:cntrl:]]+/?$" (default "" $session.public_origin))) -}}
+  {{- fail "browser sessions require public_origin as an absolute HTTPS origin without credentials, path, query or fragment" -}}
+{{- end -}}
+{{- if $backend.password -}}
+  {{- fail "browser backend password must use browserState.passwordSecret, never config" -}}
+{{- end -}}
+{{- if and $backend.url (not (regexMatch "^rediss?://[^/@?#[:space:]]+(/[0-9]+)?$" $backend.url)) -}}
+  {{- fail "browser backend URL must be a primary redis:// or rediss:// endpoint without userinfo/query/fragment" -}}
+{{- end -}}
+{{- $passwordEnvs := 0 -}}
+{{- range .Values.extraEnv -}}
+  {{- if eq .name "AOT_UI__BROWSER_SESSION__BACKEND__PASSWORD" -}}
+    {{- $passwordEnvs = add1 $passwordEnvs -}}
+    {{- if or $secret.name (not (dig "valueFrom" "secretKeyRef" "name" "" .)) (not (dig "valueFrom" "secretKeyRef" "key" "" .)) (hasKey . "value") -}}
+      {{- fail "browser password extraEnv must be secretKeyRef only, and cannot duplicate browserState.passwordSecret" -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if eq .name "AOT_UI__BROWSER_SESSION__BACKEND__URL" -}}
+    {{- fail "set browser backend URL in config, not extraEnv" -}}
+  {{- end -}}
+{{- end -}}
+{{- if gt (int $passwordEnvs) 1 -}}
+  {{- fail "browser password extraEnv must contain at most one secretKeyRef entry" -}}
+{{- end -}}
+{{- if and (or $ui.ecmwf_api_key $ui.basic) (not $backend.type) -}}
+  {{- fail "direct browser login requires config.ui.browser_session.backend.type" -}}
+{{- end -}}
+{{- if and (eq $backend.type "memory") (gt (int .Values.replicaCount) 1) -}}
+  {{- fail "memory browser sessions require replicaCount: 1; use valkey for shared state" -}}
+{{- end -}}
+{{- if .Values.valkey.enabled -}}
+  {{- $v := .Subcharts.valkey.Values -}}
+  {{- if ne $v.deploymentStrategy "Recreate" -}}
+    {{- fail "bundled standalone Valkey requires deploymentStrategy: Recreate to avoid independent primaries behind one Service" -}}
+  {{- end -}}
+  {{- if gt (len (include "valkey.fullname" .Subcharts.valkey)) 58 -}}
+    {{- fail "bundled Valkey fullname must be at most 58 characters to fit the upstream -init container suffix; shorten the release/name override" -}}
+  {{- end -}}
+  {{- if or $v.replica.enabled (ne $v.service.type "ClusterIP") (ne (int $v.service.port) 6379) $v.tls.enabled -}}
+    {{- fail "bundled Valkey requires standalone ClusterIP port 6379 without TLS; use an external primary for other topologies" -}}
+  {{- end -}}
+  {{- if or (not $v.auth.enabled) (not $v.auth.usersExistingSecret) $v.auth.aclConfig -}}
+    {{- fail "bundled Valkey requires auth.enabled and auth.usersExistingSecret, without inline ACL config" -}}
+  {{- end -}}
+  {{- range $v.auth.aclUsers -}}
+    {{- if .password -}}{{- fail "bundled Valkey passwords must be in an existing Secret" -}}{{- end -}}
+  {{- end -}}
+  {{- $defaultUser := default dict $v.auth.aclUsers.default -}}
+  {{- if or (ne $secret.name $v.auth.usersExistingSecret) (ne $secret.key (default "default" $defaultUser.passwordKey)) -}}
+    {{- fail "browserState.passwordSecret must match bundled Valkey usersExistingSecret/default passwordKey exactly (literal names)" -}}
+  {{- end -}}
+  {{- if and .Values.browserState.networkPolicy.enabled $v.networkPolicy -}}
+    {{- fail "use browserState.networkPolicy only; extra Valkey policies could widen access" -}}
+  {{- end -}}
+  {{- if eq $backend.type "valkey" -}}
+    {{- $_ := set $backend "url" (printf "redis://%s:6379/0" (include "valkey.fullname" .Subcharts.valkey)) -}}
+  {{- end -}}
+{{- end -}}
+{{- if eq $backend.type "valkey" -}}
+  {{- if not $backend.url -}}{{- fail "external Valkey requires config.ui.browser_session.backend.url" -}}{{- end -}}
+  {{- if not (or $secret.name (eq (int $passwordEnvs) 1)) -}}{{- fail "Valkey browser sessions require browserState.passwordSecret.name or one password extraEnv secretKeyRef" -}}{{- end -}}
+  {{- if not (hasKey $backend "key_prefix") -}}
+    {{- $_ := set $backend "key_prefix" (include "authotron.browserKeyPrefix" .) -}}
+  {{- end -}}
+  {{- $_ := set $session "backend" $backend -}}
+  {{- $_ := set $ui "browser_session" $session -}}
+  {{- $_ := set $config "ui" $ui -}}
+{{- end -}}
+{{- toYaml $config -}}
+{{- end -}}

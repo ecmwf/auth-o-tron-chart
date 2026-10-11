@@ -86,7 +86,7 @@ See the [Auth-O-Tron documentation](https://github.com/ecmwf/auth-o-tron/tree/ma
 
 ### Login UI
 
-ConfigV2 only (`config.version: "2.0.0"`); v1 migration defaults the UI to disabled. The ConfigMap serializes `config` for the application.
+ConfigV2 only (`config.version: "2.0.0"`); v1 migration defaults the UI to disabled. The ConfigMap serializes `config`; the browser-state helper validates credentials and, for a selected bundled Valkey backend, derives its URL from the dependency service helper and supplies an instance-specific key prefix.
 
 The chart sets `config.ui: {}` so application defaults have a single source of
 truth. The defaults in the table below are supplied by the application, not
@@ -121,9 +121,203 @@ Logo and sign-in URLs must be HTTPS absolute URLs without userinfo, or root-rela
 
 The current default image **`0.3.6` lacks the UI endpoints**. To test, override `image.repository` and `image.tag` with an image built from `feat/login-ui-shell`. An eventual released version containing the UI is required for released deployments.
 
-### Optional Valkey dependency
+### Shared browser state (chart 0.4.0)
 
-`valkey.enabled` defaults to `false`. Enabling it does not enable the login UI.
+The canonical chart interface is `config.ui.browser_session.backend.type`
+(`valkey` or explicit development-only `memory`) plus
+`browserState.passwordSecret: {name, key}` for Valkey. All non-secret runtime
+settings remain under `config.ui.browser_session`. The password is injected only
+as `AOT_UI__BROWSER_SESSION__BACKEND__PASSWORD` using `secretKeyRef`; the chart
+does not create or look up that Secret. An empty `backend.password` placeholder
+is allowed, but a non-empty password in `config`, an inline password in
+`extraEnv`, URL userinfo, inline bundled ACL passwords/config, and duplicate
+password environment variables are rejected without printing credentials.
+Use the canonical reference for Valkey rather than adding a second password env.
+External-primary deployments may instead supply exactly one password `extraEnv`
+with `valueFrom.secretKeyRef` containing both `name` and `key`, while leaving
+`browserState.passwordSecret.name` empty. Multiple password env entries are
+rejected even when they reference the same Secret. Bundled Valkey requires the
+canonical reference to validate that client and server credentials match.
+
+`valkey.enabled` defaults to `false`; enabling it alone does **not** enable UI,
+choose a backend, set the public origin, or select a provider. API-only deployments
+may provision it independently. With `backend.type: valkey` and the dependency
+enabled, the chart replaces `backend.url` with
+`redis://<valkey.fullname>:6379/0` using the actual subchart context. This respects
+release names (including names containing `valkey` or `auth-o-tron`),
+`valkey.nameOverride`, `valkey.fullnameOverride`, and upstream truncation. Use
+names so that the **computed bundled Valkey fullname is at most 58 characters**;
+rendering rejects longer names to keep the upstream `-init` container suffix
+within Kubernetes' 63-character limit. This applies to the release/nameOverride
+combination as well as fullnameOverride, after upstream truncation.
+
+The default `key_prefix` is `authotron:browser:v1:<32-hex-hash>` (53 ASCII bytes).
+The hash is the first 32 hex characters of SHA-256 over the compact JSON array
+`[namespace, releaseName, Chart.Name, authotronFullname]`, where `Chart.Name` is
+the dependency alias when aliased, and `authotronFullname` comes from the
+Auth-O-Tron fullname helper. It isolates namespaces and multiple aliased chart
+instances in the same release, including instances using an external primary.
+It is independent of replica count, TTL and other runtime settings, and remains
+below the application's 128-byte bound even for maximum-length identity inputs.
+Changing namespace, release, alias or computed application fullname changes the
+default state namespace and makes previous browser state inaccessible.
+
+An explicit `backend.key_prefix` is preserved as the operator's choice; it must
+be 1–128 ASCII characters using only letters, digits, `:`, `_` or `-`. **Reusing
+an explicit prefix across independent deployments sharing a primary/database
+mixes their browser state and rate limits.** Choose a unique prefix for each
+logical deployment; do not concatenate long raw namespace/release/fullname
+strings that can exceed 128 bytes. Existing deployments migrating from the old
+release-only default will start with fresh browser state under the new default.
+
+With the dependency disabled, supply an explicit non-secret `backend.url` to a
+**writable primary** (`redis://host:6379/0`, or `rediss://host:6379/0` when supported
+by the feature build). Cluster/Sentinel discovery and replica/read endpoints are
+not this interface. External service topology, TLS trust, access policy, resource
+bounds and persistence belong to its operator.
+
+Bundled Valkey is one authenticated standalone Deployment, ClusterIP port 6379,
+with `Recreate` updates, bounded server and init resources, and no ingress. It is
+**not HA**: outages interrupt direct login/session access. Default
+`valkey.dataStorage.enabled: false`, `save ""`, and `appendonly no` make state
+ephemeral. Losing the backend clears browser sessions/forms/rate state and logs
+users out. Persistence is optional via the upstream `dataStorage` fields, but
+enabling a volume alone does not enable snapshots/AOF: configure both storage and
+`valkey.valkeyConfig` deliberately. Default `maxmemory 64mb` and
+`maxmemory-policy noeviction` fail writes at capacity rather than evicting active
+state. Keep maxmemory below the container memory limit with overhead headroom.
+Tune `valkey.resources`, `valkey.initResources` and `valkey.valkeyConfig` together.
+TCP health probes check listening, not authenticated command health.
+
+The default `browserState.networkPolicy.enabled: true` permits TCP 6379 only
+from the same namespace's Auth-O-Tron pods matching this chart's name and release
+labels. It requires a NetworkPolicy-capable CNI. There is no namespace-wide allow
+and no outbound restriction. Extra `valkey.networkPolicy` rules are rejected
+while this policy is enabled because Kubernetes policies combine additively.
+Disable the chart policy only when supplying equivalent operator-managed policy.
+The upstream Helm auth-test pod is deliberately not admitted by this policy;
+these offline contracts do not execute Helm test hooks.
+
+Application defaults below are supplied by the **shared-browser-state feature
+build**, not copied into the chart's default `config.ui: {}`. The default image
+`0.3.6` does not implement this configuration or shared browser sessions.
+
+| `config.ui.browser_session` field | Application default | Bounds/meaning |
+|---|---|---|
+| `public_origin` | required whenever `browser_session` is configured | HTTPS origin supplied by operator |
+| `session_ttl_seconds` | `300` | Absolute expiry, 60–86400 seconds |
+| `transaction_ttl_seconds` | `300` | Form transaction expiry, 30–900 seconds |
+| `max_forms` / `max_sessions` | `1024` / `1024` | Each 1–100000 |
+| `max_forms_per_window` / `max_logins_per_window` | `120` / `60` | Each 1–100000 |
+| `rate_window_seconds` | `60` | 1–3600 seconds |
+| `max_inflight_logins` | `8` | Per-pod verification concurrency, 1–256 |
+| `max_shared_inflight_logins` | absent / `null` (disabled) | Optional Valkey-backed deployment-wide concurrency cap, 1–65536 |
+| `verification_timeout_seconds` | `10` | 1–30 seconds |
+| `backend.type` | explicit selection required | `valkey`; `memory` for single-replica development |
+| `backend.url` | operator supplied externally; helper-derived bundled | Primary endpoint, no credentials/query/fragment |
+| `backend.key_prefix` | chart supplies `authotron:browser:v1:<32-hex-hash>` for Valkey | 1–128 ASCII letters/digits/colon/underscore/hyphen |
+| `backend.connect_timeout_ms` | `2000` | 1–30000 milliseconds |
+| `backend.operation_timeout_ms` | `1000` | 1–10000 milliseconds |
+
+The values schema requires `public_origin` and `backend` whenever
+`browser_session` is present and rejects unknown browser-session fields. Backend
+variants are tag-specific: `memory` accepts only `type`; Valkey accepts the URL,
+prefix, empty password placeholder and timeout settings listed above. Valkey
+URL/prefix may be omitted from input only when a helper can supply them: bundled
+URL and the default hashed prefix are generated before application serialization;
+an external-primary URL is required by template validation. The actual password
+field is supplied by the Secret environment override before runtime deserialization.
+
+`memory` sessions require `replicaCount: 1`; restart clears state. More application
+replicas can share Valkey, but that does not make the single bundled Valkey HA.
+Runtime environment overrides can bypass chart configuration checks; do not use
+them to change backend type, replica assumptions or the bundled service URL.
+
+#### Bundled Valkey with direct Basic login
+
+This is a small demonstration profile: its `max_logins_per_window: 60` over
+60 seconds is a shared admission quota, **not a capacity or throughput claim**.
+
+Provision a Secret named `browser-state` in the release namespace out of band,
+with key `default` holding a high-entropy single-line alphanumeric/base64url
+password (no trailing newline or backslash; upstream init scripts hash shell-read
+passwords). Do not place its value in a values file or command-line Helm option.
+Both references below must match literally; templated secret names are not used.
+The provider named `basic-login` must also be configured in `config.providers`.
+
+```yaml
+image:
+  repository: your-registry/auth-o-tron
+  tag: shared-browser-state-feature-build
+replicaCount: 2
+browserState:
+  passwordSecret:
+    name: browser-state
+    key: default
+valkey:
+  enabled: true
+  auth:
+    usersExistingSecret: browser-state
+    aclUsers:
+      default:
+        passwordKey: default
+config:
+  ui:
+    enabled: true
+    basic:
+      provider_name: basic-login
+    browser_session:
+      public_origin: https://login.example.com
+      session_ttl_seconds: 600
+      transaction_ttl_seconds: 120
+      max_forms: 1024
+      max_sessions: 1024
+      max_forms_per_window: 120
+      max_logins_per_window: 60
+      rate_window_seconds: 60
+      max_inflight_logins: 8
+      verification_timeout_seconds: 10
+      backend:
+        type: valkey
+        connect_timeout_ms: 2000
+        operation_timeout_ms: 1000
+```
+
+For ECMWF direct login, configure `config.ui.ecmwf_api_key.provider_name` against
+the corresponding provider; neither origin nor expiry lives in that provider UI
+object. For a generic bundled Valkey without direct browser login, retain the two
+Secret references and `valkey.enabled: true` but omit the `config.ui` settings.
+
+#### External primary
+
+Use the same feature image, direct provider, origin and expiry settings above,
+but replace the dependency/backend/credential settings with:
+
+```yaml
+valkey:
+  enabled: false
+browserState:
+  passwordSecret:
+    name: external-browser-state
+    key: password
+config:
+  ui:
+    browser_session:
+      backend:
+        type: valkey
+        url: redis://valkey-primary.internal:6379/0
+        key_prefix: authotron:browser:v1:production-gateway
+        connect_timeout_ms: 2000
+        operation_timeout_ms: 1000
+```
+
+When used as a parent-chart dependency, place **all** these inner values
+(`image`, `config`, `valkey`, `browserState`, `replicaCount`, `resources`,
+`autoscaling`) beneath the parent's
+Auth-O-Tron dependency name/alias. The nested Valkey helper receives its own
+subchart context; do not configure the parent's unrelated `valkey` key.
+
+#### Dependency verification and offline checks
 
 Pinned official chart: [`valkey` 0.12.0](https://github.com/valkey-io/valkey-helm/releases/tag/valkey-0.12.0),
 repository [`https://valkey.io/valkey-helm/`](https://valkey.io/valkey-helm/index.yaml),

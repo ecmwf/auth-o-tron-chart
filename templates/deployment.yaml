@@ -55,9 +55,18 @@ spec:
               port: http-auth
             initialDelaySeconds: 3
             periodSeconds: 5
-          {{- with .Values.extraEnv }}
+          {{- if or .Values.extraEnv .Values.browserState.passwordSecret.name }}
           env:
+            {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- with .Values.browserState.passwordSecret.name }}
+            - name: AOT_UI__BROWSER_SESSION__BACKEND__PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . | quote }}
+                  key: {{ $.Values.browserState.passwordSecret.key | quote }}
+            {{- end }}
           {{- end }}
           volumeMounts:
             - name: config-volume
