@@ -328,6 +328,12 @@ the public index:
 `Chart.lock` records both dependencies; MongoDB remains Bitnami **16.4.2**.
 No Bitnami Valkey scripts or image substitution are used.
 
+The existing offline MongoDB archive was repacked before being vendored. Its
+SHA-256 is `5a4ad8f2784efb3bcc250a379e6439fcc7c8cbe8eec40da76febaadf0f8d75de`.
+Independent review confirmed that its file paths and file contents match the
+official Bitnami 16.4.2 package; archive directory entries and packaging differ.
+It is therefore not claimed to be byte-identical to the upstream download.
+
 Verified live on 2026-10-10: official project repository ownership and recent
 maintenance, versioned Helm metadata/package, Docker Hub active image tag,
 [`9.1` image Dockerfile](https://github.com/valkey-io/valkey-container/blob/mainline/9.1/debian/Dockerfile)
