@@ -61,7 +61,7 @@ spec:
               port: http-auth
             initialDelaySeconds: 3
             periodSeconds: 5
-          {{- $backend := dig "ui" "browser_session" "backend" (dict) .Values.config }}
+          {{- $backend := (default dict (default dict (default dict .Values.config.ui).browser_session).backend) }}
           {{- $browserPassword := and (eq $backend.type "valkey") .Values.browserState.passwordSecret.name }}
           {{- if or .Values.extraEnv $browserPassword }}
           env:

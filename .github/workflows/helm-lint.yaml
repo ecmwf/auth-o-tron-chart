@@ -33,13 +33,13 @@ jobs:
 
       - name: Python lint and format
         run: |
-          python -m ruff check tests
-          python -m ruff format --check tests
+          python -m ruff check tests tools
+          python -m ruff format --check tests tools
 
       - name: Render contracts and strict lint profiles
         run: python tests/render_contract.py
 
-  application-schema-parity:
+  generated-config-schema:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,8 +53,9 @@ jobs:
       - name: Read application schema pin
         id: schema
         run: >-
-          jq -r '.source | "repository=\(.repository)", "commit=\(.commit)", "path=\(.path)"'
-          tests/application-contract.json >> "$GITHUB_OUTPUT"
+          jq -r '.properties.config."x-authotron-source"
+          | "repository=\(.repository)", "commit=\(.commit)", "path=\(.path)"'
+          values.schema.json >> "$GITHUB_OUTPUT"
 
       - name: Checkout version-matched application schema
         uses: actions/checkout@v4
@@ -66,8 +67,10 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
-      - name: Verify generated contract against pinned application
+      - name: Generator self-tests
+        run: python tests/test_generate_config_schema.py
+
+      - name: Verify values.schema.json is generated from the pinned application
         run: >-
-          python tests/schema_contract.py
+          python tools/generate_config_schema.py --check
           --schema-path ".application-schema/${{ steps.schema.outputs.path }}"
-          --require-source-hash

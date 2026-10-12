@@ -1,7 +1,7 @@
 {{/* Hash a stable instance identity, independent of runtime limits and replicas. */}}
 {{- define "authotron.browserKeyPrefix" -}}
 {{- $identity := list .Release.Namespace .Release.Name .Chart.Name (include "fullname" .) -}}
-{{- printf "authotron:browser:v1:%s" ($identity | toJson | sha256sum | trunc 32) -}}
+{{- printf "authotron:browser:%s" ($identity | toJson | sha256sum | trunc 32) -}}
 {{- end -}}
 
 {{/* Render "true" when any provider has a non-null browser map; `browser: null` means API-only. */}}
@@ -18,7 +18,7 @@
 {{- $session := default dict $ui.browser_session -}}
 {{- $backend := default dict $session.backend -}}
 {{- $secret := .Values.browserState.passwordSecret -}}
-{{- if and (hasKey $ui "browser_session") (not (regexMatch "^https://[^/@?#\\\\[:space:][:cntrl:]]+/?$" (default "" $session.public_origin))) -}}
+{{- if and $ui.browser_session (not (regexMatch "^https://[^/@?#\\\\[:space:][:cntrl:]]+/?$" (default "" $session.public_origin))) -}}
   {{- fail "browser sessions require public_origin as an absolute HTTPS origin without credentials, path, query or fragment" -}}
 {{- end -}}
 {{- if $backend.password -}}
@@ -41,6 +41,26 @@
 {{- end -}}
 {{- if gt (int $passwordEnvs) 1 -}}
   {{- fail "browser password extraEnv must contain at most one secretKeyRef entry" -}}
+{{- end -}}
+{{/* Cross-provider rules JSON Schema cannot express; per-field shape is schema-validated. */}}
+{{- $ids := dict -}}
+{{- $labels := dict -}}
+{{- $methods := 0 -}}
+{{- range (default list $config.providers) -}}
+  {{- if and (kindIs "map" .) (kindIs "map" .browser) -}}
+    {{- $methods = add1 $methods -}}
+    {{- if hasKey .browser "id" -}}
+      {{- $id := toString .browser.id -}}
+      {{- if hasKey $ids $id -}}{{- fail (printf "provider browser id %q must be unique" $id) -}}{{- end -}}
+      {{- $_ := set $ids $id true -}}
+    {{- end -}}
+    {{- $label := default "" .browser.label | toString | trim | lower -}}
+    {{- if hasKey $labels $label -}}{{- fail "provider browser labels must be unique (case-insensitive, trimmed)" -}}{{- end -}}
+    {{- $_ := set $labels $label true -}}
+  {{- end -}}
+{{- end -}}
+{{- if gt (int $methods) 16 -}}
+  {{- fail "at most 16 providers may declare a browser block" -}}
 {{- end -}}
 {{- if and (include "authotron.hasBrowserMethod" .) (not $backend.type) -}}
   {{- fail "direct browser login requires config.ui.browser_session.backend.type" -}}

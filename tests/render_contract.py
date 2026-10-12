@@ -4,16 +4,18 @@ import copy
 import hashlib
 import json
 import os
-from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from pathlib import Path
 
 import yaml
 
-from schema_contract import load_contract, verify_chart
-
 CHART = Path(__file__).resolve().parents[1]
+SCHEMA = json.loads((CHART / "values.schema.json").read_text())
+DEFS = SCHEMA["definitions"]
+SESSION = DEFS["authotron.BrowserSessionConfig"]["properties"]
+VALKEY_BACKEND = DEFS["authotron.BrowserBackendConfig"]["oneOf"][1]["properties"]
 PASSWORD_ENV = "AOT_UI__BROWSER_SESSION__BACKEND__PASSWORD"
 HOMES = {}
 
@@ -38,7 +40,7 @@ BROWSER_PROVIDER = {
     "name": "basic-provider",
     "realm": "browser",
     "users": [],
-    "browser": {"label": "Username and password"},
+    "browser": {"id": "password", "label": "Username and password"},
 }
 DIRECT = {
     "enabled": True,
@@ -62,12 +64,28 @@ def render(values=None, release="aot", chart=CHART, failed=False, namespace="con
         text=True,
         capture_output=True,
         env={**os.environ, **HOMES},
+        check=False,
     )
     if failed:
         assert result.returncode, "render unexpectedly succeeded"
         return result.stdout + result.stderr
     assert result.returncode == 0, result.stderr
     return [doc for doc in yaml.safe_load_all(result.stdout) if doc]
+
+
+def schema_failure(error, path, message=""):
+    """Assert a schema rejection names `path` (Helm 4 JSON pointer, Helm 3 dots).
+
+    Example: path "config/providers/0/browser/id" matches Helm 4's
+    "at '/config/providers/0/browser/id': ..." and Helm 3's
+    "config.providers.0.browser.id: ...".
+    """
+    assert "schema" in error, error
+    assert "execution error" not in error, error
+    lines = [line.replace("/", ".") for line in error.splitlines()]
+    dotted = path.replace("/", ".")
+    hits = [line for line in lines if dotted in line and message in line]
+    assert hits, f"no schema error at {path!r} containing {message!r}:\n{error}"
 
 
 def config(docs):
@@ -86,6 +104,22 @@ def app(docs):
         and d["spec"]["template"]["spec"]["containers"][0]["name"]
         == "auth-o-tron-chart"
     )
+
+
+def numeric_bounds(properties):
+    return {
+        name: (prop["minimum"], prop["maximum"])
+        for name, prop in properties.items()
+        if "minimum" in prop and "maximum" in prop
+    }
+
+
+def browser_provider(index, **browser):
+    provider = copy.deepcopy(BROWSER_PROVIDER)
+    provider["name"] = f"provider-{index}"
+    provider["browser"] = {"id": f"method-{index}", "label": f"Method {index}"}
+    provider["browser"].update(browser)
+    return provider
 
 
 def direct_config(ui=None):
@@ -240,10 +274,28 @@ class Contracts(unittest.TestCase):
                 docs = render(values, release)
                 self.assert_workload_isolation(docs)
 
-    def test_application_schema_parity_and_hpa_default(self):
-        contract = load_contract()["contract"]
-        verify_chart(contract)
-        cap = contract["default_max_inflight_logins"]
+    def test_generated_schema_is_current_and_hpa_matches_server(self):
+        source = SCHEMA["properties"]["config"]["x-authotron-source"]
+        self.assertRegex(source["commit"], r"^[0-9a-f]{40}$")
+        self.assertRegex(source["sha256"], r"^[0-9a-f]{64}$")
+        server = SCHEMA["properties"]["config"]
+        self.assertNotIn("$defs", json.dumps(server))
+        inflight = SESSION["max_inflight_logins"]
+        target = SCHEMA["properties"]["autoscaling"]["properties"][
+            "targetInFlightLogins"
+        ]
+        self.assertEqual(
+            (target["minimum"], target["maximum"]),
+            (inflight["minimum"], inflight["maximum"]),
+        )
+        cap = inflight["default"]
+        hpa = (CHART / "templates/hpa.yaml").read_text()
+        self.assertIn(f"default {cap} $session.max_inflight_logins", hpa)
+        self.assertIn(f"(default {cap})", hpa)
+        self.assertIn(
+            f"must be below max_inflight_logins (default {cap})",
+            (CHART / "values.yaml").read_text(),
+        )
         values = copy.deepcopy(BUNDLED)
         values["config"] = direct_config()
         values["autoscaling"] = {
@@ -340,7 +392,7 @@ class Contracts(unittest.TestCase):
                     backend["url"], f"redis://{primary['metadata']['name']}:6379/0"
                 )
                 self.assertRegex(
-                    backend["key_prefix"], r"^authotron:browser:v1:[0-9a-f]{32}$"
+                    backend["key_prefix"], r"^authotron:browser:[0-9a-f]{32}$"
                 )
                 self.assertEqual(
                     config(docs)["ui"]["browser_session"]["session_ttl_seconds"], 600
@@ -424,8 +476,8 @@ class Contracts(unittest.TestCase):
         longest = config(render(changed, release="r" * 53, namespace="n" * 63))["ui"][
             "browser_session"
         ]["backend"]["key_prefix"]
-        self.assertRegex(longest, r"^authotron:browser:v1:[0-9a-f]{32}$")
-        self.assertEqual(len(longest), 53)
+        self.assertRegex(longest, r"^authotron:browser:[0-9a-f]{32}$")
+        self.assertEqual(len(longest), 50)
         changed["config"]["ui"]["browser_session"]["backend"]["key_prefix"] = (
             "operator_choice:shared"
         )
@@ -503,6 +555,7 @@ class Contracts(unittest.TestCase):
                 text=True,
                 capture_output=True,
                 env={**os.environ, **HOMES},
+                check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
@@ -642,7 +695,10 @@ class Contracts(unittest.TestCase):
                 "name": "ECMWF API Provider",
                 "realm": "ecmwf",
                 "uri": "https://api.ecmwf.int/v1",
-                "browser": {"label": "ECMWF API key"},
+                "browser": {
+                    "label": "ECMWF API key",
+                    "id": "api-key",
+                },
             }
         ]
         render(ecmwf)
@@ -695,6 +751,123 @@ class Contracts(unittest.TestCase):
         sentinel = "DO_NOT_LEAK_PASSWORD_12345"
         bundled["config"]["ui"]["browser_session"]["backend"]["password"] = sentinel
         self.assertNotIn(sentinel, render(bundled, failed=True))
+
+    def test_generated_schema_rejections(self):
+        def schema_error(provider=None, ui=None, path="config", message=""):
+            values = copy.deepcopy(BUNDLED)
+            values["config"] = direct_config(ui)
+            if provider is not None:
+                values["config"]["providers"] = [provider]
+            schema_failure(render(values, failed=True), path, message)
+
+        label_path = "config/providers/0/browser/label"
+        for label in ["", "x" * 65]:
+            with self.subTest(label=label):
+                schema_error(browser_provider(1, label=label), path=label_path)
+        schema_error(
+            browser_provider(1, unknown=True),
+            path="config/providers/0/browser",
+            message="unknown",
+        )
+        schema_error(browser_provider(1, label=7), path=label_path, message="string")
+        schema_error(
+            dict(browser_provider(1), browser="password"),
+            path="config/providers/0/browser",
+        )
+        schema_error(
+            dict(browser_provider(1), type="unknown"),
+            path="config/providers/0/type",
+        )
+        schema_error(
+            dict(BROWSER_PROVIDER, users="alice"), path="config/providers/0/users"
+        )
+        # Only plain and ecmwf-api accept a browser block; null stays API-only.
+        jwt = {
+            "type": "jwt",
+            "name": "sso",
+            "realm": "sso",
+            "cert_uri": "https://sso.example.test/certs",
+            "iam_realm": "sso",
+        }
+        values = copy.deepcopy(BUNDLED)
+        values["config"] = direct_config()
+        values["config"]["providers"].append(
+            dict(jwt, browser={"id": "sso", "label": "SSO"})
+        )
+        schema_failure(render(values, failed=True), "config/providers/1/browser")
+        values["config"]["providers"][-1]["browser"] = None
+        rendered = config(render(values))["providers"][-1]
+        self.assertIsNone(rendered["browser"])
+        for removed in ["sign_in_actions", "ecmwf_api_key", "basic"]:
+            with self.subTest(removed=removed):
+                schema_error(
+                    ui={**copy.deepcopy(DIRECT), removed: {}},
+                    path="config/ui",
+                    message=removed,
+                )
+        schema_failure(
+            render({"config": {"version": "3.0.0"}}, failed=True), "config/version"
+        )
+        # Chart defaults must satisfy the server's required ConfigV2 fields.
+        schema_failure(render({"config": {"jwt": None}}, failed=True), "config")
+
+    def test_browser_id_schema_rejections(self):
+        for bad in ["", "-a", "A", "a_b", "a" * 33, "callback", "new", "account"]:
+            with self.subTest(id=bad):
+                values = copy.deepcopy(BUNDLED)
+                values["config"] = direct_config()
+                values["config"]["providers"] = [browser_provider(1, id=bad)]
+                schema_failure(
+                    render(values, failed=True), "config/providers/0/browser/id"
+                )
+        values = copy.deepcopy(BUNDLED)
+        values["config"] = direct_config()
+        values["config"]["providers"] = [browser_provider(1, id="a" * 32)]
+        render(values)
+
+    def test_cross_provider_browser_rules(self):
+        def providers_result(providers, failed):
+            values = copy.deepcopy(BUNDLED)
+            values["config"] = direct_config()
+            values["config"]["providers"] = providers
+            return render(values, failed=failed)
+
+        providers_result([browser_provider(i) for i in range(16)], False)
+        self.assertIn(
+            "at most 16 providers",
+            providers_result([browser_provider(i) for i in range(17)], True),
+        )
+        api_only = [dict(browser_provider(i), browser=None) for i in range(20)]
+        providers_result([browser_provider(99), *api_only], False)
+        for label in ["Method 1", "method 1", "  METHOD 1 "]:
+            with self.subTest(label=label):
+                duplicate = [browser_provider(1), browser_provider(2, label=label)]
+                self.assertIn(
+                    "labels must be unique", providers_result(duplicate, True)
+                )
+        # Case folding is Unicode-aware: "Ärzte" and "ärzte" collide.
+        non_ascii = [
+            browser_provider(1, label="Ärzte"),
+            browser_provider(2, label="ärzte"),
+        ]
+        self.assertIn("labels must be unique", providers_result(non_ascii, True))
+        distinct = [
+            browser_provider(1, label="Ärzte"),
+            browser_provider(2, label="Aerzte"),
+        ]
+        providers_result(distinct, False)
+        duplicate = [browser_provider(1), browser_provider(2, id="method-1")]
+        self.assertIn(
+            'browser id "method-1" must be unique',
+            providers_result(duplicate, True),
+        )
+        for ui in [{"enabled": True}, {"enabled": True, "browser_session": None}]:
+            with self.subTest(ui=ui):
+                values = {"config": direct_config(ui)}
+                self.assertIn(
+                    "requires config.ui.browser_session.backend.type",
+                    render(values, failed=True),
+                )
 
     def test_rejections_and_secret_redaction(self):
         sentinel = "DO_NOT_LEAK_PASSWORD_12345"
@@ -781,10 +954,9 @@ class Contracts(unittest.TestCase):
         external["extraEnv"][1]["value"] = sentinel
         self.assertNotIn(sentinel, render(external, failed=True))
 
-        contract = load_contract()["contract"]
-        bounds = {**contract["session"], **contract["backend"]}
-        for field, limits in bounds.items():
-            minimum, maximum = limits["minimum"], limits["maximum"]
+        bounds = {**numeric_bounds(SESSION), **numeric_bounds(VALKEY_BACKEND)}
+        self.assertGreaterEqual(len(bounds), 12)
+        for field, (minimum, maximum) in bounds.items():
             for value in [minimum - 1, minimum, maximum, maximum + 1]:
                 with self.subTest(field=field, value=value):
                     values = copy.deepcopy(BUNDLED)
@@ -818,7 +990,10 @@ class Contracts(unittest.TestCase):
             values = copy.deepcopy(BUNDLED)
             values["config"] = direct_config()
             values["config"]["ui"]["browser_session"]["backend"]["key_prefix"] = prefix
-            self.assertIn("schema", render(values, failed=True))
+            schema_failure(
+                render(values, failed=True),
+                "config/ui/browser_session/backend/key_prefix",
+            )
         values["config"]["ui"]["browser_session"]["backend"]["key_prefix"] = "A" * 128
         self.assertEqual(
             config(render(values))["ui"]["browser_session"]["backend"]["key_prefix"],
@@ -828,7 +1003,11 @@ class Contracts(unittest.TestCase):
             values = copy.deepcopy(BUNDLED)
             values["config"] = direct_config()
             del values["config"]["ui"]["browser_session"][missing]
-            self.assertIn("schema", render(values, failed=True))
+            schema_failure(
+                render(values, failed=True),
+                "config/ui/browser_session",
+                f"missing property '{missing}'",
+            )
         for origin in [
             "/login",
             "https://login.test/path",
@@ -853,7 +1032,11 @@ class Contracts(unittest.TestCase):
                 "type": "memory",
                 field: "",
             }
-            self.assertIn("schema", render(values, failed=True))
+            schema_failure(
+                render(values, failed=True),
+                "config/ui/browser_session/backend",
+                field,
+            )
         values = {
             "config": direct_config(),
             "browserState": copy.deepcopy(BUNDLED["browserState"]),
@@ -885,7 +1068,8 @@ class Contracts(unittest.TestCase):
             parent = Path(tmp)
             (parent / "charts").mkdir()
             (parent / "Chart.yaml").write_text(
-                "apiVersion: v2\nname: parent\nversion: 1.0.0\ndependencies:\n- name: auth-o-tron-chart\n  alias: gateway\n  version: 0.5.0\n"
+                "apiVersion: v2\nname: parent\nversion: 1.0.0\ndependencies:\n"
+                "- name: auth-o-tron-chart\n  alias: gateway\n  version: 0.5.0\n"
             )
             subprocess.run(
                 [
@@ -923,7 +1107,9 @@ class Contracts(unittest.TestCase):
             # Two instances in one parent release share an external primary but
             # must not share a default browser namespace, even with equal fullnames.
             (parent / "Chart.yaml").write_text(
-                "apiVersion: v2\nname: parent\nversion: 1.0.0\ndependencies:\n- name: auth-o-tron-chart\n  alias: gateway\n  version: 0.5.0\n- name: auth-o-tron-chart\n  alias: second\n  version: 0.5.0\n"
+                "apiVersion: v2\nname: parent\nversion: 1.0.0\ndependencies:\n"
+                "- name: auth-o-tron-chart\n  alias: gateway\n  version: 0.5.0\n"
+                "- name: auth-o-tron-chart\n  alias: second\n  version: 0.5.0\n"
             )
             values["valkey"] = {"enabled": False}
             values["config"] = direct_config()

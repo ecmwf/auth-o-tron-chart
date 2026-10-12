@@ -154,7 +154,7 @@ rendering rejects longer names to keep the upstream `-init` container suffix
 within Kubernetes' 63-character limit. This applies to the release/nameOverride
 combination as well as fullnameOverride, after upstream truncation.
 
-The default `key_prefix` is `authotron:browser:v1:<32-hex-hash>` (53 ASCII bytes).
+The default `key_prefix` is `authotron:browser:<32-hex-hash>` (50 ASCII bytes).
 The hash is the first 32 hex characters of SHA-256 over the compact JSON array
 `[namespace, releaseName, Chart.Name, authotronFullname]`, where `Chart.Name` is
 the dependency alias when aliased, and `authotronFullname` comes from the
@@ -164,6 +164,11 @@ It is independent of replica count, TTL and other runtime settings, and remains
 below the application's 128-byte bound even for maximum-length identity inputs.
 Changing namespace, release, alias or computed application fullname changes the
 default state namespace and makes previous browser state inaccessible.
+
+Rollout note: earlier chart previews used `authotron:browser:v1:<hash>`. Dropping
+the `v1` segment orphans those keys, which is intended: the server's v2 browser
+record namespace already ignores records written by earlier versions, so no
+migration is needed. Orphaned keys expire through their TTLs.
 
 An explicit `backend.key_prefix` is preserved as the operator's choice; it must
 be 1–128 ASCII characters using only letters, digits, `:`, `_` or `-`. **Reusing
@@ -218,7 +223,7 @@ build**, not copied into the chart's default `config.ui: {}`. The default image
 | `verification_timeout_seconds` | `10` | 1–30 seconds |
 | `backend.type` | explicit selection required | `valkey`; `memory` for single-replica development |
 | `backend.url` | operator supplied externally; helper-derived bundled | Primary endpoint, no credentials/query/fragment |
-| `backend.key_prefix` | chart supplies `authotron:browser:v1:<32-hex-hash>` for Valkey | 1–128 ASCII letters/digits/colon/underscore/hyphen |
+| `backend.key_prefix` | chart supplies `authotron:browser:<32-hex-hash>` for Valkey | 1–128 ASCII letters/digits/colon/underscore/hyphen |
 | `backend.connect_timeout_ms` | `2000` | 1–30000 milliseconds |
 | `backend.operation_timeout_ms` | `1000` | 1–10000 milliseconds |
 
@@ -313,7 +318,7 @@ config:
       backend:
         type: valkey
         url: redis://valkey-primary.internal:6379/0
-        key_prefix: authotron:browser:v1:production-gateway
+        key_prefix: authotron:browser:production-gateway
         connect_timeout_ms: 2000
         operation_timeout_ms: 1000
 ```
@@ -380,57 +385,74 @@ and application Service names matching an enabled Valkey `-metrics` Service.
 Valkey `commonLabels`/`podLabels` cannot override selector labels. Valid existing
 names and selectors retain their meaning.
 
-#### Application schema parity
+#### Generated application config schema
 
-`tests/application-contract.json` is generated from the application schema at
-the exact feature-build commit recorded in its `source` metadata, including the
-schema SHA-256. This pin describes the supported browser feature contract;
-the default application image **0.3.6** does not implement those features. Use a
-feature image built from that commit, or verify the schema of your chosen image
-source before deploying it. A version string alone does not identify a feature
-build.
+`values.schema.json` `properties.config` is **generated** from the server's
+`authotron/schema.json`; do not edit it (or the `definitions/authotron.*`
+entries) by hand. `tools/generate_config_schema.py` converts the server's draft
+2020-12 schema to the draft-07 dialect Helm 3.17 validates: `$defs` move to
+root `definitions/authotron.<Name>`, refs are rewritten, and keywords next to
+`$ref` are wrapped in `allOf` so they keep their 2020-12 meaning (including a
+sibling `additionalProperties: false`). `deprecated` is copied as an annotation
+that draft-07 ignores. Unknown keywords abort generation instead of being
+silently dropped. Chart-only parts
+of the file (image, replicas, autoscaling, browserState, valkey, ...) are
+preserved.
 
-CI checks out that exact application commit, verifies the schema hash, and
-re-extracts the contract. It compares all numeric bounds/types with the
-chart schema; render tests also exercise both sides of the application's
-default in-flight limit (8). Boundary tests consume this generated fixture,
-rather than another handwritten numeric table. Chart-only topology rules are
-tested separately.
+Provenance is recorded in `properties.config["x-authotron-source"]`
+(repository, full commit, path, SHA-256 of the schema bytes); it is the only
+server pin in this chart. The default application image **0.3.6** does not
+implement the pinned browser features; use an image built from the pinned
+commit, or check the schema of your image source before deploying.
 
-To check a different application checkout explicitly (unrelated OAuth schema
-changes do not affect this focused comparison):
+A few chart-owned deltas (`CHART_OVERRIDES` in the generator) are applied on
+top, each asserting the server value it replaces so a server change forces a
+review: the Valkey backend only requires `type` in values (the chart injects
+`url` for bundled Valkey and `key_prefix`; the password comes from a Secret
+env), `password` must be empty, and `key_prefix` is restricted to
+`[A-Za-z0-9:_-]{1,128}`. Server-required fields such as `store`, `jwt`,
+`server` and `logging` are satisfied by `values.yaml` defaults; Helm validates
+the merged values, so nulling one of them is rejected.
+
+Template `fail` checks remain only for rules JSON Schema cannot express:
+unique provider `browser.id`s, unique browser labels (trimmed,
+case-insensitive), at most 16 browser methods, a browser method requiring
+`config.ui.browser_session.backend`, HTTPS origin/URL shapes, and topology
+rules. Render tests derive numeric boundaries and the in-flight HPA default
+(the server `max_inflight_logins` default/bounds) from the embedded schema.
+
+Regenerate from committed server bytes, then review the diff. Without
+`--source-commit` the checkout's `HEAD` is used and uncommitted schema edits are
+refused; with `--source-commit <full SHA>` the generator reads
+`git show <SHA>:authotron/schema.json` from the server repository and requires
+it to be byte-identical to `--schema-path`:
 
 ```bash
-python3 tests/schema_contract.py --schema-path ../auth-o-tron/authotron/schema.json
+python3 tools/generate_config_schema.py \
+  --schema-path <server checkout>/authotron/schema.json --source-commit <full SHA>
+python3 tests/test_generate_config_schema.py
 python3 tests/render_contract.py
 ```
 
-For a supported feature-version update, generate the fixture from a clean
-checkout of the chosen full commit, review its output into
-`tests/application-contract.json`, and update chart limits/default behavior as
-needed:
+Drift test: CI checks out the recorded repository at the recorded commit and runs
 
 ```bash
-python3 tests/schema_contract.py --schema-path ../auth-o-tron/authotron/schema.json \
-  --generate --source-commit FULL_40_CHARACTER_COMMIT_SHA
+python3 tools/generate_config_schema.py --check --schema-path <pinned>/authotron/schema.json
 ```
 
-The source commit must be fetchable from the recorded repository for CI to pass;
-an unpublished local feature commit must be published there before merging.
-CI fails on missing source rather than substituting unreleased `main` or skipping
-parity. The pin guards the declared supported version, not future application
-commits automatically; each supported image-source update must update/verify
-this pin. The application repository's own generated-schema tests remain
-responsible for schema-to-runtime parity.
+which fails if regenerating (including the SHA-256) changes a byte.
 
-Cross-repository pins: this chart's server pin lives only in
-`tests/application-contract.json`; the server's reverse chart pin lives only in
-its `.github/workflows/ci.yaml` (see its `.github/CI.md` for the bump order).
+Pin order: land and publish the server schema change first, regenerate the
+chart against that published commit, then bump the server's reverse chart pin
+in its `.github/workflows/ci.yaml` (see its `.github/CI.md`). The recorded
+commit must be fetchable from the recorded repository; CI fails rather than
+substituting `main`.
 
 Contracts cover defaults/disabled, the five-resource ingress preview, API-only
 bundled Valkey, direct Basic bundled state, external primary, memory replica
 rejection, duplicate password env and credential leakage rejection, all numeric
-schema boundaries, required/tag-specific fields, prefix alphabet/length,
+schema boundaries (derived from the generated schema), generated-schema
+rejections, cross-provider browser rules, required/tag-specific fields, prefix alphabet/length,
 namespace and same-parent alias isolation, stable prefixes across TTL/replica
 changes, helper naming/overrides/long-name rejection, policy selectors, parent
 alias scoping, HPA targets/prerequisites/replica ownership, shared-cap bounds,

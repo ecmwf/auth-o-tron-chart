@@ -2,91 +2,1609 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
-    "replicaCount": {"type": "integer", "minimum": 1},
+    "replicaCount": {
+      "type": "integer",
+      "minimum": 1
+    },
     "resources": {
       "type": "object",
       "properties": {
-        "requests": {"type": "object", "properties": {"cpu": {"type": ["string", "number"]}}},
-        "limits": {"type": "object"}
-      }
-    },
-    "autoscaling": {
-      "type": "object", "additionalProperties": false,
-      "required": ["enabled", "minReplicas", "maxReplicas"],
-      "properties": {
-        "enabled": {"type": "boolean"},
-        "minReplicas": {"type": "integer", "minimum": 1},
-        "maxReplicas": {"type": "integer", "minimum": 1},
-        "targetCPUUtilizationPercentage": {"type": ["integer", "null"], "minimum": 1, "maximum": 100},
-        "targetInFlightLogins": {"type": ["integer", "null"], "minimum": 1, "maximum": 256}
-      }
-    },
-    "browserState": {
-      "type": "object", "additionalProperties": false,
-      "required": ["passwordSecret", "networkPolicy"],
-      "properties": {
-        "passwordSecret": {
-          "type": "object", "additionalProperties": false,
-          "required": ["name", "key"],
+        "requests": {
+          "type": "object",
           "properties": {
-            "name": {"type": "string", "pattern": "^$|^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$", "maxLength": 253},
-            "key": {"type": "string", "minLength": 1, "pattern": "^[a-zA-Z0-9._-]+$"}
+            "cpu": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
           }
         },
-        "networkPolicy": {
-          "type": "object", "additionalProperties": false,
-          "properties": {"enabled": {"type": "boolean"}}
+        "limits": {
+          "type": "object"
         }
       }
     },
-    "valkey": {"type": "object", "properties": {"enabled": {"type": "boolean"}}},
-    "config": {
+    "autoscaling": {
       "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "minReplicas",
+        "maxReplicas"
+      ],
       "properties": {
-        "ui": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "minReplicas": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxReplicas": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "targetCPUUtilizationPercentage": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 100
+        },
+        "targetInFlightLogins": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 256
+        }
+      }
+    },
+    "browserState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passwordSecret",
+        "networkPolicy"
+      ],
+      "properties": {
+        "passwordSecret": {
           "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "key"
+          ],
           "properties": {
-            "enabled": {"type": "boolean"},
-            "browser_session": {
-              "type": "object", "additionalProperties": false,
-              "required": ["public_origin", "backend"],
-              "properties": {
-                "public_origin": {"type": "string", "minLength": 1},
-                "session_ttl_seconds": {"type": "integer", "minimum": 60, "maximum": 86400},
-                "transaction_ttl_seconds": {"type": "integer", "minimum": 30, "maximum": 900},
-                "max_forms": {"type": "integer", "minimum": 1, "maximum": 100000},
-                "max_sessions": {"type": "integer", "minimum": 1, "maximum": 100000},
-                "max_forms_per_window": {"type": "integer", "minimum": 1, "maximum": 100000},
-                "max_logins_per_window": {"type": "integer", "minimum": 1, "maximum": 100000},
-                "rate_window_seconds": {"type": "integer", "minimum": 1, "maximum": 3600},
-                "max_inflight_logins": {"type": "integer", "minimum": 1, "maximum": 256},
-                "max_shared_inflight_logins": {"type": ["integer", "null"], "minimum": 1, "maximum": 65536},
-                "verification_timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 30},
-                "backend": {
-                  "type": "object",
-                  "oneOf": [
-                    {
-                      "additionalProperties": false, "required": ["type"],
-                      "properties": {"type": {"const": "memory"}}
-                    },
-                    {
-                      "additionalProperties": false, "required": ["type"],
-                      "properties": {
-                        "type": {"const": "valkey"},
-                        "url": {"type": "string"},
-                        "password": {"type": "string", "maxLength": 0},
-                        "key_prefix": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9:_-]+$"},
-                        "connect_timeout_ms": {"type": "integer", "minimum": 1, "maximum": 30000},
-                        "operation_timeout_ms": {"type": "integer", "minimum": 1, "maximum": 10000}
-                      }
-                    }
-                  ]
-                }
-              }
+            "name": {
+              "type": "string",
+              "pattern": "^$|^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$",
+              "maxLength": 253
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9._-]+$"
+            }
+          }
+        },
+        "networkPolicy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
             }
           }
         }
       }
+    },
+    "valkey": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "config": {
+      "title": "Config",
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.ConfigV1"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "type": "string",
+                  "const": "1.0.0"
+                }
+              },
+              "required": [
+                "version"
+              ]
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.ConfigV2"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "type": "string",
+                  "const": "2.0.0"
+                }
+              },
+              "required": [
+                "version"
+              ]
+            }
+          ]
+        }
+      ],
+      "x-authotron-source": {
+        "repository": "ecmwf/auth-o-tron",
+        "commit": "085b14bc8a02fbe4ebbefed658f60ef3be757fcd",
+        "path": "authotron/schema.json",
+        "sha256": "d8568a3f55923438af1bcb7e2ca176de77f6fd1c0b5fc2bfd433f7447e93e74e"
+      }
+    }
+  },
+  "definitions": {
+    "authotron.StoreConfig": {
+      "description": "A wrapper for the store configuration:\n- enabled: if false, the store is effectively disabled (NoStore).\n- backend: the actual store backend (MongoDB, etc.).",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "anyOf": [
+        {
+          "oneOf": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/authotron.MongoDBConfig"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "mongo"
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {}
+      ]
+    },
+    "authotron.MongoDBConfig": {
+      "description": "The config struct for MongoDB connections.\nContains the URI and database name.",
+      "type": "object",
+      "properties": {
+        "uri": {
+          "type": "string"
+        },
+        "database": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "uri",
+        "database"
+      ]
+    },
+    "authotron.ServiceConfig": {
+      "description": "A declaration of services we might need (e.g., to store scopes).",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "scopes"
+      ]
+    },
+    "authotron.ProviderConfig": {
+      "description": "Configuration options for each authentication provider.",
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.EcmwfApiProviderConfig"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "ecmwf-api"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.EcmwfTokenGeneratorProviderConfig"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "ecmwf-token-generator"
+                },
+                "browser": {
+                  "description": "Direct browser sign-in is not supported for this provider type; only `null` is accepted.",
+                  "type": "null"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.EFASApiProviderConfig"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "efas-api"
+                },
+                "browser": {
+                  "description": "Direct browser sign-in is not supported for this provider type; only `null` is accepted.",
+                  "type": "null"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.JWTAuthConfig"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "jwt"
+                },
+                "browser": {
+                  "description": "Direct browser sign-in is not supported for this provider type; only `null` is accepted.",
+                  "type": "null"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.OpenIDOfflineProviderConfig"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "openid-offline"
+                },
+                "browser": {
+                  "description": "Direct browser sign-in is not supported for this provider type; only `null` is accepted.",
+                  "type": "null"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.PlainAuthConfig"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "plain"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "authotron.ProviderBrowserConfig": {
+      "description": "Offers a `plain` or `ecmwf-api` provider as a direct browser sign-in method.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Stable method id used in `/login/method/{id}`, form flow tags and the\n`method` metric label; unique across providers.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
+          "not": {
+            "enum": [
+              "callback",
+              "new",
+              "account"
+            ]
+          }
+        },
+        "label": {
+          "description": "Chooser button text, trimmed, 1-64 characters, no control characters.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label"
+      ]
+    },
+    "authotron.EcmwfApiProviderConfig": {
+      "description": "The config needed for the ECMWF API provider (who-am-i endpoint).",
+      "type": "object",
+      "properties": {
+        "uri": {
+          "type": "string"
+        },
+        "realm": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "browser": {
+          "description": "Offers this provider as a direct browser sign-in method.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/authotron.ProviderBrowserConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "uri",
+        "realm",
+        "name"
+      ]
+    },
+    "authotron.EcmwfTokenGeneratorProviderConfig": {
+      "description": "Config for an ECMWF Token Generator provider that validates tokens through the token generator API.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "cert_uri": {
+          "type": "string"
+        },
+        "client_id": {
+          "type": "string"
+        },
+        "client_secret": {
+          "type": "string"
+        },
+        "token_generator_url": {
+          "type": "string"
+        },
+        "realm": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "cert_uri",
+        "client_id",
+        "client_secret",
+        "token_generator_url",
+        "realm"
+      ]
+    },
+    "authotron.EFASApiProviderConfig": {
+      "type": "object",
+      "properties": {
+        "uri": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "realm": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "uri",
+        "name",
+        "realm"
+      ]
+    },
+    "authotron.JWTAuthConfig": {
+      "description": "JWT config structure for external usage",
+      "type": "object",
+      "properties": {
+        "cert_uri": {
+          "type": "string"
+        },
+        "realm": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "iam_realm": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cert_uri",
+        "realm",
+        "name",
+        "iam_realm"
+      ]
+    },
+    "authotron.OpenIDOfflineProviderConfig": {
+      "description": "Config for an OpenID provider that also supports offline tokens.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "cert_uri": {
+          "type": "string"
+        },
+        "public_client_id": {
+          "type": "string"
+        },
+        "private_client_id": {
+          "type": "string"
+        },
+        "private_client_secret": {
+          "type": "string"
+        },
+        "iam_url": {
+          "type": "string"
+        },
+        "realm": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "cert_uri",
+        "public_client_id",
+        "private_client_id",
+        "private_client_secret",
+        "iam_url",
+        "realm"
+      ]
+    },
+    "authotron.PlainUserEntry": {
+      "description": "Represents a single user entry (username + password).",
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "roles": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "username",
+        "password"
+      ]
+    },
+    "authotron.PlainAuthConfig": {
+      "description": "PlainAuthConfig defines the data for Basic authentication.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "A friendly name for logs.",
+          "type": "string"
+        },
+        "realm": {
+          "description": "The realm associated with this provider.",
+          "type": "string"
+        },
+        "users": {
+          "description": "A list of username/password pairs.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/authotron.PlainUserEntry"
+          }
+        },
+        "browser": {
+          "description": "Offers this provider as a direct browser sign-in method.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/authotron.ProviderBrowserConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "realm",
+        "users"
+      ]
+    },
+    "authotron.AugmenterConfig": {
+      "description": "Configuration options for augmenters (e.g. an LDAP roles augmenter).",
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.LDAPAugmenterConfig"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "ldap"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.PlainAugmenterConfig"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "plain"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.PlainAdvancedAugmenterConfig"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "plain_advanced"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "authotron.LDAPAugmenterConfig": {
+      "description": "Configuration required to connect to LDAP and fetch user roles.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "realm": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string"
+        },
+        "search_base": {
+          "type": "string"
+        },
+        "filter": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "filters": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "bind_dn": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ldap_password": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "realm",
+        "uri",
+        "search_base",
+        "ldap_password"
+      ]
+    },
+    "authotron.PlainAugmenterConfig": {
+      "description": "PlainAugmenterConfig defines the data for additional roles.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "A friendly name for logs.",
+          "type": "string"
+        },
+        "realm": {
+          "description": "The realm associated with this provider.",
+          "type": "string"
+        },
+        "roles": {
+          "description": "A list of roles and users.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": [
+        "name",
+        "realm",
+        "roles"
+      ]
+    },
+    "authotron.PlainAdvancedAugmenterMatcher": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "description": "Users whose names trigger augmentation.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "role": {
+          "description": "Existing roles that trigger augmentation.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "authotron.PlainAdvancedAugmenterAugment": {
+      "type": "object",
+      "properties": {
+        "roles": {
+          "description": "Roles to append (deduped).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "attributes": {
+          "description": "Attributes to upsert (overwrite existing keys).",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        }
+      }
+    },
+    "authotron.PlainAdvancedAugmenterConfig": {
+      "description": "PlainAdvancedAugmenterConfig defines matching and augmentation rules.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "realm": {
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/definitions/authotron.PlainAdvancedAugmenterMatcher"
+        },
+        "augment": {
+          "$ref": "#/definitions/authotron.PlainAdvancedAugmenterAugment"
+        }
+      },
+      "required": [
+        "name",
+        "realm",
+        "match",
+        "augment"
+      ]
+    },
+    "authotron.JWTConfig": {
+      "description": "A simple definition for JWT usage in tokens.",
+      "type": "object",
+      "properties": {
+        "iss": {
+          "type": "string"
+        },
+        "aud": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exp": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "secret": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "iss",
+        "exp",
+        "secret"
+      ]
+    },
+    "authotron.LoggingConfig": {
+      "description": "LoggingConfig controls how we initialize tracing/logging.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "service_name": {
+          "type": "string",
+          "default": "authotron"
+        },
+        "service_version": {
+          "type": "string",
+          "default": "0.3.7"
+        }
+      },
+      "required": [
+        "level",
+        "format"
+      ]
+    },
+    "authotron.AuthConfig": {
+      "description": "Configuration for the authentication timeout.\nThis is used for select_ok operations in the auth module,\nand we kill ongoing futures if they take too long.\n\nNote:\n- The attribute `#[serde(default = \"default_timeout_in_ms\")]` ensures that if\n  the `timeout_in_ms` key is missing during deserialization, it gets set to 5000.\n- However, when the entire auth section is omitted, Serde calls `AuthConfig::default()`.\n  Therefore, we manually implement Default for AuthConfig so that AuthConfig::default()\n  returns a timeout of 5000 instead of the primitive default (0).",
+      "type": "object",
+      "properties": {
+        "timeout_in_ms": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "default": 5000
+        }
+      }
+    },
+    "authotron.ConfigV1": {
+      "type": "object",
+      "properties": {
+        "store": {
+          "$ref": "#/definitions/authotron.StoreConfig"
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/authotron.ServiceConfig"
+          }
+        },
+        "providers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/authotron.ProviderConfig"
+          }
+        },
+        "augmenters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/authotron.AugmenterConfig"
+          },
+          "default": []
+        },
+        "bind_address": {
+          "type": "string"
+        },
+        "jwt": {
+          "$ref": "#/definitions/authotron.JWTConfig"
+        },
+        "include_legacy_headers": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "logging": {
+          "$ref": "#/definitions/authotron.LoggingConfig"
+        },
+        "auth": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.AuthConfig"
+            },
+            {
+              "default": {
+                "timeout_in_ms": 5000
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "store",
+        "services",
+        "providers",
+        "bind_address",
+        "jwt",
+        "logging"
+      ]
+    },
+    "authotron.ServerConfig": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "default": "0.0.0.0"
+        },
+        "port": {
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0,
+          "maximum": 65535
+        }
+      },
+      "required": [
+        "port"
+      ]
+    },
+    "authotron.MetricsConfig": {
+      "description": "Controls the dedicated metrics/health server on a separate port.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "port": {
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0,
+          "maximum": 65535,
+          "default": 9090
+        }
+      }
+    },
+    "authotron.UiConfig": {
+      "description": "Controls branding, trusted SSO links, and the shared direct-login session.\n\nDirect browser login methods are declared by `browser` blocks on `plain`\nand `ecmwf-api` providers.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "branding": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.BrandingConfig"
+            },
+            {
+              "default": {
+                "application_name": "Auth-O-Tron",
+                "logo_url": null,
+                "title": null,
+                "description": null
+              }
+            }
+          ]
+        },
+        "sso": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/authotron.BrowserSignInAction"
+          },
+          "default": []
+        },
+        "browser_session": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/authotron.BrowserSessionConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "authotron.BrandingConfig": {
+      "description": "Application-owned branding; all text is rendered as escaped plain text.",
+      "type": "object",
+      "properties": {
+        "application_name": {
+          "type": "string",
+          "default": "Auth-O-Tron"
+        },
+        "logo_url": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/authotron.UiUrl"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      }
+    },
+    "authotron.UiUrl": {
+      "description": "A URL for escaped UI image and navigation attributes.\n\nHTTPS URLs and root-relative paths such as `/assets/aviso.png` are accepted.\nScheme-relative URLs such as `//other.example/logo.png`, script URLs such\nas `javascript:alert(1)`, and URLs containing credentials are rejected.",
+      "type": "string"
+    },
+    "authotron.BrowserSignInAction": {
+      "description": "An operator-configured entry into an application's browser login flow.",
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "start_url": {
+          "$ref": "#/definitions/authotron.UiUrl"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "start_url"
+      ]
+    },
+    "authotron.BrowserSessionConfig": {
+      "description": "One origin and absolute session lifetime shared by all direct login flows.",
+      "type": "object",
+      "properties": {
+        "public_origin": {
+          "$ref": "#/definitions/authotron.UiUrl"
+        },
+        "session_ttl_seconds": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 60,
+          "maximum": 86400,
+          "default": 300
+        },
+        "backend": {
+          "$ref": "#/definitions/authotron.BrowserBackendConfig"
+        },
+        "transaction_ttl_seconds": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 30,
+          "maximum": 900,
+          "default": 300
+        },
+        "max_forms": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 1,
+          "maximum": 100000,
+          "default": 1024
+        },
+        "max_sessions": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 1,
+          "maximum": 100000,
+          "default": 1024
+        },
+        "max_forms_per_window": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 1,
+          "maximum": 100000,
+          "default": 120
+        },
+        "max_logins_per_window": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 1,
+          "maximum": 100000,
+          "default": 60
+        },
+        "rate_window_seconds": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 1,
+          "maximum": 3600,
+          "default": 60
+        },
+        "max_inflight_logins": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 1,
+          "maximum": 256,
+          "default": 8
+        },
+        "max_shared_inflight_logins": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "minimum": 1,
+          "maximum": 65536,
+          "default": null
+        },
+        "verification_timeout_seconds": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 1,
+          "maximum": 30,
+          "default": 10
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "public_origin",
+        "backend"
+      ]
+    },
+    "authotron.BrowserBackendConfig": {
+      "description": "A single primary endpoint; Cluster and Sentinel discovery are not supported.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "memory"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "key_prefix": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9:_-]+$"
+            },
+            "password": {
+              "type": "string",
+              "writeOnly": true,
+              "maxLength": 0
+            },
+            "connect_timeout_ms": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 1,
+              "maximum": 30000,
+              "default": 2000
+            },
+            "operation_timeout_ms": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1000
+            },
+            "type": {
+              "type": "string",
+              "const": "valkey"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "authotron.OAuthConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "issuer": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "authorization_code_ttl_seconds": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 30,
+          "maximum": 300,
+          "default": 60
+        },
+        "access_token_ttl_seconds": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 60,
+          "maximum": 3600,
+          "default": 300
+        },
+        "authorization_transaction_ttl_seconds": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 30,
+          "maximum": 900,
+          "default": 300
+        },
+        "max_authorization_transactions": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 1,
+          "maximum": 100000,
+          "default": 1024
+        },
+        "max_authorization_codes": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 1,
+          "maximum": 100000,
+          "default": 1024
+        },
+        "max_authentication_age_seconds": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 1,
+          "maximum": 3600,
+          "default": 300
+        },
+        "authentication_clock_skew_seconds": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "maximum": 60,
+          "default": 30
+        },
+        "clients": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/authotron.OAuthClient"
+          },
+          "maxItems": 64,
+          "default": []
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/authotron.OAuthResource"
+          },
+          "maxItems": 64,
+          "default": []
+        },
+        "signing": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/authotron.OAuthSigningConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "additionalProperties": false
+    },
+    "authotron.OAuthClient": {
+      "description": "Locally preregistered public client; token endpoint authentication is `none`.",
+      "type": "object",
+      "properties": {
+        "client_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "display_name": {
+          "type": "string"
+        },
+        "application_type": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.ApplicationType"
+            },
+            {
+              "default": "web"
+            }
+          ]
+        },
+        "redirect_uris": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "maxItems": 8
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/authotron.ClientResource"
+          },
+          "maxItems": 64,
+          "default": []
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "client_id",
+        "display_name",
+        "redirect_uris"
+      ]
+    },
+    "authotron.ApplicationType": {
+      "description": "Uses the OpenID Connect `application_type` terminology.",
+      "type": "string",
+      "enum": [
+        "web",
+        "native"
+      ]
+    },
+    "authotron.ClientResource": {
+      "type": "object",
+      "properties": {
+        "resource": {
+          "type": "string"
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "maxItems": 32
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "resource",
+        "scopes"
+      ]
+    },
+    "authotron.OAuthResource": {
+      "type": "object",
+      "properties": {
+        "resource": {
+          "type": "string"
+        },
+        "allowed_realms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "maxItems": 16
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/authotron.ResourceScope"
+          },
+          "minItems": 1,
+          "maxItems": 32
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "resource",
+        "allowed_realms",
+        "scopes"
+      ]
+    },
+    "authotron.ResourceScope": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "required_roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "required_roles"
+      ]
+    },
+    "authotron.OAuthSigningConfig": {
+      "type": "object",
+      "properties": {
+        "active_kid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/authotron.OAuthSigningKey"
+          },
+          "minItems": 1,
+          "maxItems": 8
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "active_kid",
+        "keys"
+      ]
+    },
+    "authotron.OAuthSigningKey": {
+      "description": "Admin-selected paths only; key contents are never part of the config contract.",
+      "type": "object",
+      "properties": {
+        "kid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "private_key_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "public_key_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kid"
+      ]
+    },
+    "authotron.ConfigV2": {
+      "type": "object",
+      "properties": {
+        "store": {
+          "$ref": "#/definitions/authotron.StoreConfig"
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/authotron.ServiceConfig"
+          }
+        },
+        "providers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/authotron.ProviderConfig"
+          }
+        },
+        "augmenters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/authotron.AugmenterConfig"
+          },
+          "default": []
+        },
+        "server": {
+          "$ref": "#/definitions/authotron.ServerConfig"
+        },
+        "metrics": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.MetricsConfig"
+            },
+            {
+              "default": {
+                "enabled": true,
+                "port": 9090
+              }
+            }
+          ]
+        },
+        "jwt": {
+          "$ref": "#/definitions/authotron.JWTConfig"
+        },
+        "include_legacy_headers": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "logging": {
+          "$ref": "#/definitions/authotron.LoggingConfig"
+        },
+        "auth": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.AuthConfig"
+            },
+            {
+              "default": {
+                "timeout_in_ms": 5000
+              }
+            }
+          ]
+        },
+        "ui": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.UiConfig"
+            },
+            {
+              "default": {
+                "enabled": false,
+                "branding": {
+                  "application_name": "Auth-O-Tron",
+                  "logo_url": null,
+                  "title": null,
+                  "description": null
+                },
+                "sso": []
+              }
+            }
+          ]
+        },
+        "oauth": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.OAuthConfig"
+            },
+            {
+              "default": {
+                "enabled": false,
+                "issuer": null,
+                "authorization_code_ttl_seconds": 60,
+                "access_token_ttl_seconds": 300,
+                "authorization_transaction_ttl_seconds": 300,
+                "max_authorization_transactions": 1024,
+                "max_authorization_codes": 1024,
+                "max_authentication_age_seconds": 300,
+                "authentication_clock_skew_seconds": 30,
+                "clients": [],
+                "resources": [],
+                "signing": null
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "store",
+        "services",
+        "providers",
+        "server",
+        "jwt",
+        "logging"
+      ]
     }
   }
 }
