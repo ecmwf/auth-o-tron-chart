@@ -154,9 +154,9 @@
       ],
       "x-authotron-source": {
         "repository": "ecmwf/auth-o-tron",
-        "commit": "ae9fbe80567c36ce517fd4faf404812b4e8db061",
+        "commit": "23b638cbf0933c62a726abb38ed3c2cefa1e05ec",
         "path": "authotron/schema.json",
-        "sha256": "7026801c64f93b2ed9f64de202a912ccedb7a4ccd407a83dd7e66747042bf1a9"
+        "sha256": "c14af7098183021e985468e86c33f73437dda1a4a0080a196fa4638fbc8fd679"
       }
     }
   },
@@ -392,6 +392,16 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 64
+        },
+        "refresh_max_lifetime_seconds": {
+          "description": "Upper bound on the absolute lifetime of OAuth refresh-token families started\nby a login with this method; the client's `absolute_ttl_seconds` still applies.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 300,
+          "maximum": 34560000
         }
       },
       "additionalProperties": false,
@@ -1289,6 +1299,22 @@
           "maximum": 1000,
           "default": 50
         },
+        "endpoint_rate_limit": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/authotron.OAuthEndpointRateLimit"
+            },
+            {
+              "default": {
+                "window_seconds": 60,
+                "token_requests_per_window": 60,
+                "revoke_requests_per_window": 30,
+                "max_tracked_clients": 10000,
+                "trusted_proxies": []
+              }
+            }
+          ]
+        },
         "clients": {
           "type": "array",
           "items": {
@@ -1315,6 +1341,51 @@
             }
           ],
           "default": null
+        }
+      },
+      "additionalProperties": false
+    },
+    "authotron.OAuthEndpointRateLimit": {
+      "description": "Per-replica fixed-window limits for `/oauth/token` and `/oauth/revoke`, keyed by\nclient IP (IPv6 by /64). The client IP is the TCP peer unless that peer is in\n`trusted_proxies`; then it is the right-most `X-Forwarded-For` entry outside them.",
+      "type": "object",
+      "properties": {
+        "window_seconds": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 1,
+          "maximum": 3600,
+          "default": 60
+        },
+        "token_requests_per_window": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 1,
+          "maximum": 100000,
+          "default": 60
+        },
+        "revoke_requests_per_window": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 1,
+          "maximum": 100000,
+          "default": 30
+        },
+        "max_tracked_clients": {
+          "description": "Client windows tracked across both endpoints; once full, untracked IPs are rejected.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 1,
+          "maximum": 1000000,
+          "default": 10000
+        },
+        "trusted_proxies": {
+          "description": "CIDRs of reverse proxies whose `X-Forwarded-For` is trusted, e.g. `10.0.0.0/8`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "default": []
         }
       },
       "additionalProperties": false
@@ -1637,6 +1708,13 @@
                 "max_authentication_age_seconds": 300,
                 "authentication_clock_skew_seconds": 30,
                 "max_refresh_token_families_per_user": 50,
+                "endpoint_rate_limit": {
+                  "window_seconds": 60,
+                  "token_requests_per_window": 60,
+                  "revoke_requests_per_window": 30,
+                  "max_tracked_clients": 10000,
+                  "trusted_proxies": []
+                },
                 "clients": [],
                 "resources": [],
                 "signing": null
