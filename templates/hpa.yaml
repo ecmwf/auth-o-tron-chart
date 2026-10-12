@@ -14,8 +14,8 @@
 {{- end }}
 {{- if $a.targetInFlightLogins }}
   {{- $ui := default dict .Values.config.ui }}
-  {{- if not (and $ui.enabled (or $ui.basic $ui.ecmwf_api_key)) }}
-    {{- fail "in-flight login autoscaling requires config.ui.enabled and a configured ui.basic or ui.ecmwf_api_key direct-login flow" }}
+  {{- if not (and $ui.enabled (include "authotron.hasBrowserMethod" .)) }}
+    {{- fail "in-flight login autoscaling requires config.ui.enabled and at least one provider with a browser block" }}
   {{- end }}
   {{- $session := default dict $ui.browser_session }}
   {{- $cap := default 8 $session.max_inflight_logins }}

@@ -33,9 +33,15 @@ BUNDLED = {
     "valkey": {"enabled": True, "auth": {"usersExistingSecret": "browser-secret"}},
     "browserState": {"passwordSecret": {"name": "browser-secret", "key": "default"}},
 }
+BROWSER_PROVIDER = {
+    "type": "plain",
+    "name": "basic-provider",
+    "realm": "browser",
+    "users": [],
+    "browser": {"label": "Username and password"},
+}
 DIRECT = {
     "enabled": True,
-    "basic": {"provider_name": "basic-provider"},
     "browser_session": {
         "public_origin": "https://login.example.test",
         "session_ttl_seconds": 600,
@@ -80,6 +86,14 @@ def app(docs):
         and d["spec"]["template"]["spec"]["containers"][0]["name"]
         == "auth-o-tron-chart"
     )
+
+
+def direct_config(ui=None):
+    """Chart config with one browser-enabled provider and a direct-login UI."""
+    return {
+        "providers": [copy.deepcopy(BROWSER_PROVIDER)],
+        "ui": copy.deepcopy(DIRECT) if ui is None else ui,
+    }
 
 
 class Contracts(unittest.TestCase):
@@ -231,7 +245,7 @@ class Contracts(unittest.TestCase):
         verify_chart(contract)
         cap = contract["default_max_inflight_logins"]
         values = copy.deepcopy(BUNDLED)
-        values["config"] = {"ui": copy.deepcopy(DIRECT)}
+        values["config"] = direct_config()
         values["autoscaling"] = {
             "enabled": True,
             "targetCPUUtilizationPercentage": None,
@@ -285,6 +299,13 @@ class Contracts(unittest.TestCase):
                     values["extraEnv"],
                 )
 
+    def test_null_browser_provider_is_api_only(self):
+        provider = dict(BROWSER_PROVIDER, browser=None)
+        docs = render({"config": {"providers": [provider], "ui": {"enabled": True}}})
+        self.assertEqual(config(docs)["providers"][0]["browser"], None)
+        self.assertNotIn("browser_session", config(docs)["ui"])
+        self.assertFalse(any(d["kind"] == "StatefulSet" for d in docs))
+
     def test_direct_bundled_naming_and_policy(self):
         for release, overrides in [
             ("aot", {}),
@@ -297,7 +318,7 @@ class Contracts(unittest.TestCase):
             with self.subTest(release=release, overrides=overrides):
                 values = copy.deepcopy(BUNDLED)
                 values["valkey"].update(overrides)
-                values["config"] = {"ui": copy.deepcopy(DIRECT)}
+                values["config"] = direct_config()
                 # Bundled helper must replace a stale supplied URL.
                 values["config"]["ui"]["browser_session"]["backend"]["url"] = (
                     "redis://stale:6379/0"
@@ -376,7 +397,7 @@ class Contracts(unittest.TestCase):
         ui = copy.deepcopy(DIRECT)
         ui["browser_session"]["backend"]["url"] = "rediss://primary.example.test:6379/0"
         values = {
-            "config": {"ui": ui},
+            "config": direct_config(ui),
             "browserState": BUNDLED["browserState"],
             "replicaCount": 2,
         }
@@ -427,7 +448,7 @@ class Contracts(unittest.TestCase):
         values["valkey"]["auth"]["aclUsers"] = {
             "default": {"passwordKey": "browser-password"}
         }
-        values["config"] = {"ui": copy.deepcopy(DIRECT)}
+        values["config"] = direct_config()
         values["config"]["ui"]["browser_session"]["backend"]["password"] = ""
         docs = render(values)
         env = app(docs)["spec"]["template"]["spec"]["containers"][0]["env"]
@@ -443,7 +464,7 @@ class Contracts(unittest.TestCase):
 
     def test_strict_lint_profiles(self):
         bundled = copy.deepcopy(BUNDLED)
-        bundled["config"] = {"ui": copy.deepcopy(DIRECT)}
+        bundled["config"] = direct_config()
         external = copy.deepcopy(bundled)
         external["valkey"] = {"enabled": False}
         external["config"]["ui"]["browser_session"]["backend"]["url"] = (
@@ -460,7 +481,7 @@ class Contracts(unittest.TestCase):
             "targetCPUUtilizationPercentage": None,
             "targetInFlightLogins": 32,
         }
-        memory = {"config": {"ui": copy.deepcopy(DIRECT)}}
+        memory = {"config": direct_config()}
         memory["config"]["ui"]["browser_session"]["backend"] = {"type": "memory"}
         preview = {"config": {"ui": {"enabled": True}}, "ingress": {"enabled": True}}
         bundled_metrics = copy.deepcopy(bundled)
@@ -531,7 +552,7 @@ class Contracts(unittest.TestCase):
             )
             self.assertEqual(config(docs)["ui"], {})
         values.update(copy.deepcopy(BUNDLED))
-        values["config"] = {"ui": copy.deepcopy(DIRECT)}
+        values["config"] = direct_config()
         values["config"]["ui"]["browser_session"]["max_inflight_logins"] = 64
         values["autoscaling"]["targetInFlightLogins"] = 32
         both = render(values)
@@ -579,7 +600,7 @@ class Contracts(unittest.TestCase):
                 }
             )
         custom = copy.deepcopy(BUNDLED)
-        custom["config"] = {"ui": copy.deepcopy(DIRECT)}
+        custom["config"] = direct_config()
         custom["autoscaling"] = {
             "enabled": True,
             "targetCPUUtilizationPercentage": None,
@@ -588,23 +609,26 @@ class Contracts(unittest.TestCase):
         render(custom)  # Positive target below the implicit per-pod default of 8.
         absent = copy.deepcopy(custom)
         absent["config"].pop("ui")
-        self.assertIn(
-            "configured ui.basic or ui.ecmwf_api_key", render(absent, failed=True)
-        )
-        for inactive in [
-            {},
-            {"enabled": True},
-            {
-                "enabled": True,
-                "sign_in_actions": [{"label": "SSO", "start_url": "/oauth2/start"}],
-            },
-            {**copy.deepcopy(DIRECT), "enabled": False},
+        self.assertIn("provider with a browser block", render(absent, failed=True))
+        api_only = copy.deepcopy(BROWSER_PROVIDER)
+        api_only.pop("browser")
+        for providers, inactive in [
+            ([api_only], {}),
+            ([api_only], {"enabled": True}),
+            (
+                [api_only],
+                {
+                    "enabled": True,
+                    "sso": [{"label": "SSO", "start_url": "/oauth2/start"}],
+                },
+            ),
+            ([api_only], copy.deepcopy(DIRECT)),
+            ([BROWSER_PROVIDER], {**copy.deepcopy(DIRECT), "enabled": False}),
         ]:
             values = copy.deepcopy(custom)
+            values["config"]["providers"] = copy.deepcopy(providers)
             values["config"]["ui"] = inactive
-            self.assertIn(
-                "configured ui.basic or ui.ecmwf_api_key", render(values, failed=True)
-            )
+            self.assertIn("provider with a browser block", render(values, failed=True))
         for cap, target in [(None, 8), (None, 9), (1, 1), (4, 4), (4, 5)]:
             values = copy.deepcopy(custom)
             values["autoscaling"]["targetInFlightLogins"] = target
@@ -612,7 +636,15 @@ class Contracts(unittest.TestCase):
                 values["config"]["ui"]["browser_session"]["max_inflight_logins"] = cap
             self.assertIn("strictly below effective", render(values, failed=True))
         ecmwf = copy.deepcopy(custom)
-        ecmwf["config"]["ui"]["ecmwf_api_key"] = ecmwf["config"]["ui"].pop("basic")
+        ecmwf["config"]["providers"] = [
+            {
+                "type": "ecmwf-api",
+                "name": "ECMWF API Provider",
+                "realm": "ecmwf",
+                "uri": "https://api.ecmwf.int/v1",
+                "browser": {"label": "ECMWF API key"},
+            }
+        ]
         render(ecmwf)
         for override in [
             {"metrics": {"enabled": False}},
@@ -645,7 +677,7 @@ class Contracts(unittest.TestCase):
             }
             render(values, failed=True)
         values = copy.deepcopy(custom)
-        values["config"] = {"ui": copy.deepcopy(DIRECT)}
+        values["config"] = direct_config()
         values["config"]["ui"]["browser_session"]["backend"] = {"type": "memory"}
         values.pop("valkey")
         values.pop("browserState")
@@ -655,7 +687,7 @@ class Contracts(unittest.TestCase):
         self.assertNotIn("replicas", app(render(values))["spec"])
         bundled = copy.deepcopy(BUNDLED)
         bundled.update(copy.deepcopy(custom))
-        bundled["config"] = {"ui": copy.deepcopy(DIRECT)}
+        bundled["config"] = direct_config()
         docs = render(bundled)
         valkey = next(d for d in docs if d["kind"] == "Deployment" and d != app(docs))
         self.assertEqual(valkey["spec"]["replicas"], 1)
@@ -700,8 +732,18 @@ class Contracts(unittest.TestCase):
                     }
                 ],
             },
-            {"config": {"ui": {"enabled": True, "basic": {"provider_name": "basic"}}}},
-            {"config": {"ui": {"enabled": False, "basic": {"provider_name": "basic"}}}},
+            {
+                "config": {
+                    "providers": [copy.deepcopy(BROWSER_PROVIDER)],
+                    "ui": {"enabled": True},
+                }
+            },
+            {
+                "config": {
+                    "providers": [copy.deepcopy(BROWSER_PROVIDER)],
+                    "ui": {"enabled": False},
+                }
+            },
             {"config": {"ui": {"browser_session": {"session_ttl_seconds": 86401}}}},
             {"config": {"ui": {"browser_session": {"transaction_ttl_seconds": 29}}}},
             {
@@ -718,7 +760,7 @@ class Contracts(unittest.TestCase):
         for values in cases:
             self.assertNotIn(sentinel, render(values, failed=True))
         external = {
-            "config": {"ui": copy.deepcopy(DIRECT)},
+            "config": direct_config(),
             "browserState": copy.deepcopy(BUNDLED["browserState"]),
         }
         external["config"]["ui"]["browser_session"]["backend"]["url"] = (
@@ -746,7 +788,7 @@ class Contracts(unittest.TestCase):
             for value in [minimum - 1, minimum, maximum, maximum + 1]:
                 with self.subTest(field=field, value=value):
                     values = copy.deepcopy(BUNDLED)
-                    values["config"] = {"ui": copy.deepcopy(DIRECT)}
+                    values["config"] = direct_config()
                     target = values["config"]["ui"]["browser_session"]
                     if field.endswith("_ms"):
                         target = target["backend"]
@@ -765,7 +807,7 @@ class Contracts(unittest.TestCase):
                     else:
                         self.assertIn("schema", docs)
         values = copy.deepcopy(BUNDLED)
-        values["config"] = {"ui": copy.deepcopy(DIRECT)}
+        values["config"] = direct_config()
         values["config"]["ui"]["browser_session"]["max_shared_inflight_logins"] = None
         self.assertIsNone(
             config(render(values))["ui"]["browser_session"].get(
@@ -774,7 +816,7 @@ class Contracts(unittest.TestCase):
         )
         for prefix in ["", "x" * 129, "a b", "a{tag}", "名", "a.b", "a/b"]:
             values = copy.deepcopy(BUNDLED)
-            values["config"] = {"ui": copy.deepcopy(DIRECT)}
+            values["config"] = direct_config()
             values["config"]["ui"]["browser_session"]["backend"]["key_prefix"] = prefix
             self.assertIn("schema", render(values, failed=True))
         values["config"]["ui"]["browser_session"]["backend"]["key_prefix"] = "A" * 128
@@ -784,7 +826,7 @@ class Contracts(unittest.TestCase):
         )
         for missing in ["backend", "public_origin"]:
             values = copy.deepcopy(BUNDLED)
-            values["config"] = {"ui": copy.deepcopy(DIRECT)}
+            values["config"] = direct_config()
             del values["config"]["ui"]["browser_session"][missing]
             self.assertIn("schema", render(values, failed=True))
         for origin in [
@@ -794,7 +836,7 @@ class Contracts(unittest.TestCase):
             f"https://:{sentinel}@login.test",
         ]:
             values = copy.deepcopy(BUNDLED)
-            values["config"] = {"ui": copy.deepcopy(DIRECT)}
+            values["config"] = direct_config()
             values["config"]["ui"]["browser_session"]["public_origin"] = origin
             error = render(values, failed=True)
             self.assertIn("absolute HTTPS origin", error)
@@ -806,14 +848,14 @@ class Contracts(unittest.TestCase):
             "connect_timeout_ms",
             "operation_timeout_ms",
         ]:
-            values = {"config": {"ui": copy.deepcopy(DIRECT)}}
+            values = {"config": direct_config()}
             values["config"]["ui"]["browser_session"]["backend"] = {
                 "type": "memory",
                 field: "",
             }
             self.assertIn("schema", render(values, failed=True))
         values = {
-            "config": {"ui": copy.deepcopy(DIRECT)},
+            "config": direct_config(),
             "browserState": copy.deepcopy(BUNDLED["browserState"]),
         }
         self.assertIn("external Valkey requires", render(values, failed=True))
@@ -858,7 +900,7 @@ class Contracts(unittest.TestCase):
                 env={**os.environ, **HOMES},
             )
             values = copy.deepcopy(BUNDLED)
-            values["config"] = {"ui": DIRECT}
+            values["config"] = direct_config()
             values["autoscaling"] = {"enabled": True}
             values["resources"] = {"requests": {"cpu": "100m"}}
             docs = render({"gateway": values}, chart=parent)
@@ -884,7 +926,7 @@ class Contracts(unittest.TestCase):
                 "apiVersion: v2\nname: parent\nversion: 1.0.0\ndependencies:\n- name: auth-o-tron-chart\n  alias: gateway\n  version: 0.5.0\n- name: auth-o-tron-chart\n  alias: second\n  version: 0.5.0\n"
             )
             values["valkey"] = {"enabled": False}
-            values["config"] = {"ui": copy.deepcopy(DIRECT)}
+            values["config"] = direct_config()
             values["config"]["ui"]["browser_session"]["backend"]["url"] = (
                 "redis://shared-primary:6379/0"
             )

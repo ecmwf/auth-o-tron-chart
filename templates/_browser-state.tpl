@@ -4,6 +4,13 @@
 {{- printf "authotron:browser:v1:%s" ($identity | toJson | sha256sum | trunc 32) -}}
 {{- end -}}
 
+{{/* Render "true" when any provider has a non-null browser map; `browser: null` means API-only. */}}
+{{- define "authotron.hasBrowserMethod" -}}
+{{- range (default list .Values.config.providers) -}}
+{{- if and (kindIs "map" .) (kindIs "map" .browser) -}}true{{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{/* Validate before serialization; error messages never interpolate credentials. */}}
 {{- define "authotron.browserConfig" -}}
 {{- $config := deepCopy .Values.config -}}
@@ -35,7 +42,7 @@
 {{- if gt (int $passwordEnvs) 1 -}}
   {{- fail "browser password extraEnv must contain at most one secretKeyRef entry" -}}
 {{- end -}}
-{{- if and (or $ui.ecmwf_api_key $ui.basic) (not $backend.type) -}}
+{{- if and (include "authotron.hasBrowserMethod" .) (not $backend.type) -}}
   {{- fail "direct browser login requires config.ui.browser_session.backend.type" -}}
 {{- end -}}
 {{- if and (eq $backend.type "memory") (not .Values.autoscaling.enabled) (gt (int .Values.replicaCount) 1) -}}
