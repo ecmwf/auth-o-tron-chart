@@ -146,7 +146,8 @@ enabled, the chart replaces `backend.url` with
 `redis://<valkey.fullname>:6379/0` using the actual subchart context. This respects
 release names (including names containing `valkey` or `auth-o-tron`),
 `valkey.nameOverride`, `valkey.fullnameOverride`, and upstream truncation. Use
-names so that the **computed bundled Valkey fullname is at most 58 characters**;
+names so that the **computed bundled Valkey fullname is at most 58 characters**
+(**55** when its metrics Service is enabled, to fit the `-metrics` suffix);
 rendering rejects longer names to keep the upstream `-init` container suffix
 within Kubernetes' 63-character limit. This applies to the release/nameOverride
 combination as well as fullnameOverride, after upstream truncation.
@@ -348,14 +349,74 @@ The chart and container packaging are BSD-3-Clause; Valkey declares BSD-3-Clause
 omits its license file, so its exact version's notice is retained separately in
 [`VALKEY-LICENSE.txt`](VALKEY-LICENSE.txt). Auth-O-Tron's chart remains Apache-2.0.
 
-Offline checks (Helm 3.7+ or Helm 4, and Python/PyYAML required):
+Offline checks require Helm 3.7+ or Helm 4 and Python 3.10+ with the test
+dependencies installed (PyYAML and Ruff):
 
 ```bash
+python3 -m pip install -r tests/requirements.txt
 python3 tests/render_contract.py
-HELM_CACHE_HOME=/tmp/opencode/authotron-valkey-helm-cache \
-HELM_CONFIG_HOME=/tmp/opencode/authotron-valkey-helm-config \
-HELM_DATA_HOME=/tmp/opencode/authotron-valkey-helm-data helm lint --strict .
+python3 -m ruff check tests
+python3 -m ruff format --check tests
 ```
+
+The suite includes strict Helm lint profiles and owns isolated, automatically
+cleaned temporary Helm homes. It needs no pre-existing Helm configuration or
+dependency download. CI runs the same suite and Ruff checks.
+
+Bundled Valkey still requires its existing Secret for API-only deployments, but
+the application password environment variable is injected only when
+`config.ui.browser_session.backend.type: valkey` is selected. Application and
+Valkey fullnames must differ: releases such as `auth-o-tron-valkey` can collide
+under the existing fullname rules and are rejected. Set
+`valkey.fullnameOverride: browser-state` (or another distinct name) to resolve
+the collision. Guards also reject overlapping application/Valkey pod selectors
+(choose distinct `nameOverride` values; fullname overrides do not affect selectors)
+and application Service names matching an enabled Valkey `-metrics` Service.
+Valkey `commonLabels`/`podLabels` cannot override selector labels. Valid existing
+names and selectors retain their meaning.
+
+#### Application schema parity
+
+`tests/application-contract.json` is generated from the application schema at
+the exact feature-build commit recorded in its `source` metadata, including the
+schema SHA-256. This pin describes the supported browser feature contract;
+the default application image **0.3.6** does not implement those features. Use a
+feature image built from that commit, or verify the schema of your chosen image
+source before deploying it. A version string alone does not identify a feature
+build.
+
+CI checks out that exact application commit, verifies the schema hash, and
+re-extracts the contract. It compares all twelve numeric bounds/types with the
+chart schema; render tests also exercise both sides of the application's
+default in-flight limit (8). Boundary tests consume this generated fixture,
+rather than another handwritten numeric table. Chart-only topology rules are
+tested separately.
+
+To check a different application checkout explicitly (unrelated OAuth schema
+changes do not affect this focused comparison):
+
+```bash
+python3 tests/schema_contract.py --schema-path ../auth-o-tron/authotron/schema.json
+python3 tests/render_contract.py
+```
+
+For a supported feature-version update, generate the fixture from a clean
+checkout of the chosen full commit, review its output into
+`tests/application-contract.json`, and update chart limits/default behavior as
+needed:
+
+```bash
+python3 tests/schema_contract.py --schema-path ../auth-o-tron/authotron/schema.json \
+  --generate --source-commit FULL_40_CHARACTER_COMMIT_SHA
+```
+
+The source commit must be fetchable from the recorded repository for CI to pass;
+an unpublished local feature commit must be published there before merging.
+CI fails on missing source rather than substituting unreleased `main` or skipping
+parity. The pin guards the declared supported version, not future application
+commits automatically; each supported image-source update must update/verify
+this pin. The application repository's own generated-schema tests remain
+responsible for schema-to-runtime parity.
 
 Contracts cover defaults/disabled, the five-resource ingress preview, API-only
 bundled Valkey, direct Basic bundled state, external primary, memory replica

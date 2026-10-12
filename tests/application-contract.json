@@ -1,0 +1,78 @@
+{
+  "contract": {
+    "backend": {
+      "connect_timeout_ms": {
+        "maximum": 30000,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "operation_timeout_ms": {
+        "maximum": 10000,
+        "minimum": 1,
+        "type": "integer"
+      }
+    },
+    "default_max_inflight_logins": 8,
+    "session": {
+      "max_forms": {
+        "maximum": 100000,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "max_forms_per_window": {
+        "maximum": 100000,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "max_inflight_logins": {
+        "maximum": 256,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "max_logins_per_window": {
+        "maximum": 100000,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "max_sessions": {
+        "maximum": 100000,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "max_shared_inflight_logins": {
+        "maximum": 65536,
+        "minimum": 1,
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "rate_window_seconds": {
+        "maximum": 3600,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "session_ttl_seconds": {
+        "maximum": 86400,
+        "minimum": 60,
+        "type": "integer"
+      },
+      "transaction_ttl_seconds": {
+        "maximum": 900,
+        "minimum": 30,
+        "type": "integer"
+      },
+      "verification_timeout_seconds": {
+        "maximum": 30,
+        "minimum": 1,
+        "type": "integer"
+      }
+    }
+  },
+  "source": {
+    "commit": "23fbc0834d1258eb536507cd8091f128ba09c17c",
+    "path": "authotron/schema.json",
+    "repository": "ecmwf/auth-o-tron",
+    "sha256": "60956a17b8bfefe43749980c0eea9d5caf30184b422cb2dc96ebfb39a7adc9e3"
+  }
+}

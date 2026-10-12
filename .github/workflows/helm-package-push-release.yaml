@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+        with:
+          persist-credentials: false
 
       # this looked simpler than installing helm manually to me
       # so let's go with it

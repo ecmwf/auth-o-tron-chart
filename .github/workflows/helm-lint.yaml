@@ -1,4 +1,4 @@
-name: Helm Lint
+name: Helm contracts
 
 on:
   push:
@@ -6,18 +6,75 @@ on:
       - "**"
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   helm-lint:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        helm: [v3.17.3, v4.0.1]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      - name: Set up Helm with Official Script
+      - uses: azure/setup-helm@v4.3.0
+        with:
+          version: ${{ matrix.helm }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: python -m pip install -r tests/requirements.txt
+
+      - name: Python lint and format
         run: |
-          curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
-          chmod 700 get_helm.sh
-          ./get_helm.sh
+          python -m ruff check tests
+          python -m ruff format --check tests
 
-      - name: Run Helm Lint on Chart
-        run: helm lint .
+      - name: Render contracts and strict lint profiles
+        run: python tests/render_contract.py
+
+  application-schema-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Read application schema pin
+        id: schema
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          source = json.loads(Path('tests/application-contract.json').read_text())['source']
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              for key in ('repository', 'commit', 'path'):
+                  print(f'{key}={source[key]}', file=output)
+          PY
+
+      - name: Checkout version-matched application schema
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.schema.outputs.repository }}
+          ref: ${{ steps.schema.outputs.commit }}
+          path: .application-schema
+          sparse-checkout: ${{ steps.schema.outputs.path }}
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Verify generated contract against pinned application
+        run: >-
+          python tests/schema_contract.py
+          --schema-path ".application-schema/${{ steps.schema.outputs.path }}"
+          --require-source-hash

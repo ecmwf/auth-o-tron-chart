@@ -11,13 +11,24 @@ import unittest
 
 import yaml
 
+from schema_contract import load_contract, verify_chart
+
 CHART = Path(__file__).resolve().parents[1]
 PASSWORD_ENV = "AOT_UI__BROWSER_SESSION__BACKEND__PASSWORD"
-HOMES = {
-    "HELM_CACHE_HOME": "/tmp/opencode/authotron-valkey-helm-cache",
-    "HELM_CONFIG_HOME": "/tmp/opencode/authotron-valkey-helm-config",
-    "HELM_DATA_HOME": "/tmp/opencode/authotron-valkey-helm-data",
-}
+HOMES = {}
+
+
+def setUpModule():
+    root = tempfile.TemporaryDirectory(prefix="authotron-helm-")
+    unittest.addModuleCleanup(root.cleanup)
+    HOMES.update(
+        {
+            f"HELM_{kind}_HOME": str(Path(root.name) / kind.lower())
+            for kind in ("CACHE", "CONFIG", "DATA")
+        }
+    )
+
+
 BUNDLED = {
     "valkey": {"enabled": True, "auth": {"usersExistingSecret": "browser-secret"}},
     "browserState": {"passwordSecret": {"name": "browser-secret", "key": "default"}},
@@ -72,6 +83,164 @@ def app(docs):
 
 
 class Contracts(unittest.TestCase):
+    def assert_unique_resources(self, docs):
+        identities = [
+            (
+                doc["kind"],
+                doc["metadata"].get("namespace", "contract"),
+                doc["metadata"]["name"],
+            )
+            for doc in docs
+        ]
+        self.assertEqual(len(identities), len(set(identities)), identities)
+
+    def assert_workload_isolation(self, docs):
+        self.assert_unique_resources(docs)
+        deployments = [doc for doc in docs if doc["kind"] == "Deployment"]
+
+        def selected(selector, namespace):
+            self.assertTrue(selector)
+            return [
+                deployment["metadata"]["name"]
+                for deployment in deployments
+                if deployment["metadata"].get("namespace", "contract") == namespace
+                and selector.items()
+                <= deployment["spec"]["template"]["metadata"]["labels"].items()
+            ]
+
+        for doc in docs:
+            namespace = doc["metadata"].get("namespace", "contract")
+            if doc["kind"] == "Deployment":
+                self.assertEqual(
+                    selected(doc["spec"]["selector"]["matchLabels"], namespace),
+                    [doc["metadata"]["name"]],
+                )
+            elif doc["kind"] == "Service":
+                self.assertEqual(
+                    len(selected(doc["spec"]["selector"], namespace)), 1, doc
+                )
+
+    def test_bundled_selector_collisions(self):
+        for overrides in [
+            {"nameOverride": "valkey"},
+            {"valkey": {"nameOverride": "auth-o-tron"}},
+            {"nameOverride": "shared", "valkey": {"nameOverride": "shared"}},
+            {
+                "nameOverride": "s" * 63 + "-app",
+                "valkey": {"nameOverride": "s" * 63 + "-state"},
+            },
+        ]:
+            values = copy.deepcopy(BUNDLED)
+            values.update(
+                {key: value for key, value in overrides.items() if key != "valkey"}
+            )
+            values["valkey"].update(overrides.get("valkey", {}))
+            values["valkey"]["fullnameOverride"] = "distinct-state"
+            self.assertIn("pod selectors must differ", render(values, failed=True))
+        values["nameOverride"] = "gateway"
+        self.assert_workload_isolation(render(values))
+
+    def test_bundled_selector_label_overrides(self):
+        for field in ["commonLabels", "podLabels"]:
+            for key, value in [
+                ("app.kubernetes.io/name", "auth-o-tron"),
+                ("app.kubernetes.io/instance", "another-release"),
+            ]:
+                with self.subTest(field=field, key=key):
+                    values = copy.deepcopy(BUNDLED)
+                    values["valkey"][field] = {key: value}
+                    self.assertIn(
+                        "must not override selector labels", render(values, failed=True)
+                    )
+            values["valkey"][field] = {
+                "app.kubernetes.io/name": "valkey",
+                "app.kubernetes.io/instance": "aot",
+                "team": "identity",
+            }
+            self.assert_workload_isolation(render(values))
+
+    def test_bundled_metrics_service_collision(self):
+        values = copy.deepcopy(BUNDLED)
+        values["fullnameOverride"] = "state-metrics"
+        values["valkey"].update(
+            {"fullnameOverride": "state", "metrics": {"enabled": True}}
+        )
+        self.assertIn("metrics Service name", render(values, failed=True))
+        values["valkey"]["metrics"]["service"] = {"enabled": False}
+        self.assert_workload_isolation(render(values))
+        values["valkey"]["metrics"]["service"]["enabled"] = True
+        values["valkey"]["metrics"]["enabled"] = False
+        self.assert_workload_isolation(render(values))
+        values["valkey"]["metrics"]["enabled"] = True
+        values["fullnameOverride"] = "gateway"
+        values["valkey"]["metrics"].update(
+            {
+                "serviceMonitor": {"enabled": True},
+                "podMonitor": {"enabled": True},
+            }
+        )
+        docs = render(values)
+        self.assert_workload_isolation(docs)
+        self.assertEqual(len([doc for doc in docs if doc["kind"] == "Service"]), 3)
+
+    def test_metrics_service_fullname_length(self):
+        values = copy.deepcopy(BUNDLED)
+        values["valkey"].update(
+            {"fullnameOverride": "s" * 55, "metrics": {"enabled": True}}
+        )
+        docs = render(values)
+        self.assert_workload_isolation(docs)
+        self.assertTrue(
+            all(
+                len(doc["metadata"]["name"]) <= 63
+                for doc in docs
+                if doc["kind"] == "Service"
+            )
+        )
+        for length in (56, 58):
+            values["valkey"]["fullnameOverride"] = "s" * length
+            self.assertIn("at most 55 characters", render(values, failed=True))
+        values["valkey"]["metrics"]["service"] = {"enabled": False}
+        self.assert_workload_isolation(render(values))
+        values["valkey"]["metrics"] = {"enabled": False}
+        self.assert_workload_isolation(render(values))
+
+    def test_fullname_collisions(self):
+        for release, overrides in [
+            ("auth-o-tron-valkey", {}),
+            ("valkey-auth-o-tron", {}),
+            (
+                "aot",
+                {
+                    "fullnameOverride": "same",
+                    "valkey": {**BUNDLED["valkey"], "fullnameOverride": "same"},
+                },
+            ),
+        ]:
+            with self.subTest(release=release):
+                values = {**copy.deepcopy(BUNDLED), **overrides}
+                self.assertIn(
+                    "fullnames must differ", render(values, release, failed=True)
+                )
+                values["valkey"]["fullnameOverride"] = "distinct-state"
+                docs = render(values, release)
+                self.assert_workload_isolation(docs)
+
+    def test_application_schema_parity_and_hpa_default(self):
+        contract = load_contract()["contract"]
+        verify_chart(contract)
+        cap = contract["default_max_inflight_logins"]
+        values = copy.deepcopy(BUNDLED)
+        values["config"] = {"ui": copy.deepcopy(DIRECT)}
+        values["autoscaling"] = {
+            "enabled": True,
+            "targetCPUUtilizationPercentage": None,
+            "targetInFlightLogins": cap - 1,
+        }
+        render(values)
+        values["autoscaling"]["targetInFlightLogins"] = cap
+        self.assertIn("strictly below effective", render(values, failed=True))
+
     def test_default_disabled_and_preview(self):
         default = render()
         self.assertEqual(len(default), 4)
@@ -87,6 +256,7 @@ class Contracts(unittest.TestCase):
     def test_api_only_bundled_does_not_enable_ui(self):
         docs = render(BUNDLED)
         self.assertEqual(config(docs)["ui"], {})
+        self.assertNotIn("env", app(docs)["spec"]["template"]["spec"]["containers"][0])
         self.assertFalse(
             any(
                 d["kind"]
@@ -94,6 +264,26 @@ class Contracts(unittest.TestCase):
                 for d in docs
             )
         )
+        values = copy.deepcopy(BUNDLED)
+        values["extraEnv"] = [{"name": "RUST_LOG", "value": "info"}]
+        for ui in [
+            {},
+            {"enabled": True},
+            {
+                "browser_session": {
+                    "public_origin": "https://login.example.test",
+                    "backend": {"type": "memory"},
+                }
+            },
+        ]:
+            with self.subTest(ui=ui):
+                values["config"] = {"ui": ui}
+                docs = render(values)
+                self.assertEqual(config(docs)["ui"], ui)
+                self.assertEqual(
+                    app(docs)["spec"]["template"]["spec"]["containers"][0]["env"],
+                    values["extraEnv"],
+                )
 
     def test_direct_bundled_naming_and_policy(self):
         for release, overrides in [
@@ -114,6 +304,7 @@ class Contracts(unittest.TestCase):
                 )
                 values["replicaCount"] = 2
                 docs = render(values, release)
+                self.assert_workload_isolation(docs)
                 primary = next(
                     d
                     for d in docs
@@ -269,7 +460,22 @@ class Contracts(unittest.TestCase):
             "targetCPUUtilizationPercentage": None,
             "targetInFlightLogins": 32,
         }
-        for values in [{}, bundled, external, cpu_hpa, custom_hpa]:
+        memory = {"config": {"ui": copy.deepcopy(DIRECT)}}
+        memory["config"]["ui"]["browser_session"]["backend"] = {"type": "memory"}
+        preview = {"config": {"ui": {"enabled": True}}, "ingress": {"enabled": True}}
+        bundled_metrics = copy.deepcopy(bundled)
+        bundled_metrics["valkey"]["metrics"] = {"enabled": True}
+        for values in [
+            {},
+            preview,
+            BUNDLED,
+            bundled,
+            external,
+            memory,
+            cpu_hpa,
+            custom_hpa,
+            bundled_metrics,
+        ]:
             result = subprocess.run(
                 ["helm", "lint", "--strict", str(CHART), "-f", "-"],
                 input=yaml.safe_dump(values),
@@ -361,10 +567,8 @@ class Contracts(unittest.TestCase):
                 "resources": {"requests": {"cpu": cpu}},
             }
             error = render(values, failed=True)
-            self.assertIn(
-                "/resources/requests/cpu" if cpu is None else "resources.requests.cpu",
-                error,
-            )
+            # Helm 3 uses dotted schema paths; Helm 4 uses JSON-pointer paths.
+            self.assertIn("resources.requests.cpu", error.replace("/", "."))
         for cpu in ["100m", "0.25", 1]:
             render(
                 {
@@ -535,21 +739,10 @@ class Contracts(unittest.TestCase):
         external["extraEnv"][1]["value"] = sentinel
         self.assertNotIn(sentinel, render(external, failed=True))
 
-        bounds = {
-            "session_ttl_seconds": (60, 86400),
-            "transaction_ttl_seconds": (30, 900),
-            "max_forms": (1, 100000),
-            "max_sessions": (1, 100000),
-            "max_forms_per_window": (1, 100000),
-            "max_logins_per_window": (1, 100000),
-            "rate_window_seconds": (1, 3600),
-            "max_inflight_logins": (1, 256),
-            "max_shared_inflight_logins": (1, 65536),
-            "verification_timeout_seconds": (1, 30),
-            "connect_timeout_ms": (1, 30000),
-            "operation_timeout_ms": (1, 10000),
-        }
-        for field, (minimum, maximum) in bounds.items():
+        contract = load_contract()["contract"]
+        bounds = {**contract["session"], **contract["backend"]}
+        for field, limits in bounds.items():
+            minimum, maximum = limits["minimum"], limits["maximum"]
             for value in [minimum - 1, minimum, maximum, maximum + 1]:
                 with self.subTest(field=field, value=value):
                     values = copy.deepcopy(BUNDLED)
@@ -646,7 +839,7 @@ class Contracts(unittest.TestCase):
             self.assertNotIn(sentinel, render(values, failed=True))
 
     def test_parent_subchart_scope(self):
-        with tempfile.TemporaryDirectory(dir="/tmp/opencode") as tmp:
+        with tempfile.TemporaryDirectory(prefix="authotron-parent-") as tmp:
             parent = Path(tmp)
             (parent / "charts").mkdir()
             (parent / "Chart.yaml").write_text(

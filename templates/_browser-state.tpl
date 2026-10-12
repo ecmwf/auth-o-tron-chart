@@ -46,10 +46,33 @@
 {{- end -}}
 {{- if .Values.valkey.enabled -}}
   {{- $v := .Subcharts.valkey.Values -}}
+  {{- $appFullname := include "fullname" . -}}
+  {{- $valkeyFullname := include "valkey.fullname" .Subcharts.valkey -}}
+  {{- if eq $appFullname $valkeyFullname -}}
+    {{- fail "application and bundled Valkey fullnames must differ; set valkey.fullnameOverride to a distinct name" -}}
+  {{- end -}}
+  {{/* Both selectors use the same release instance; their effective names must differ. */}}
+  {{- if eq (include "name" .) (include "valkey.name" .Subcharts.valkey) -}}
+    {{- fail "application and bundled Valkey pod selectors must differ; set nameOverride or valkey.nameOverride to distinct names (fullnameOverride does not change selectors)" -}}
+  {{- end -}}
+  {{- $selector := include "valkey.selectorLabels" .Subcharts.valkey | fromYaml -}}
+  {{- range $labels := list $v.commonLabels $v.podLabels -}}
+    {{- range $key, $value := $selector -}}
+      {{- if and (hasKey $labels $key) (ne (index $labels $key) $value) -}}
+        {{- fail "bundled Valkey commonLabels and podLabels must not override selector labels" -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if and $v.metrics.enabled $v.metrics.service.enabled (eq $appFullname (printf "%s-metrics" $valkeyFullname)) -}}
+    {{- fail "application Service name collides with bundled Valkey metrics Service name; set fullnameOverride or valkey.fullnameOverride to distinct resource names" -}}
+  {{- end -}}
+  {{- if and $v.metrics.enabled $v.metrics.service.enabled (gt (len $valkeyFullname) 55) -}}
+    {{- fail "bundled Valkey fullname must be at most 55 characters with its metrics Service enabled to fit the upstream -metrics suffix" -}}
+  {{- end -}}
   {{- if ne $v.deploymentStrategy "Recreate" -}}
     {{- fail "bundled standalone Valkey requires deploymentStrategy: Recreate to avoid independent primaries behind one Service" -}}
   {{- end -}}
-  {{- if gt (len (include "valkey.fullname" .Subcharts.valkey)) 58 -}}
+  {{- if gt (len $valkeyFullname) 58 -}}
     {{- fail "bundled Valkey fullname must be at most 58 characters to fit the upstream -init container suffix; shorten the release/name override" -}}
   {{- end -}}
   {{- if or $v.replica.enabled (ne $v.service.type "ClusterIP") (ne (int $v.service.port) 6379) $v.tls.enabled -}}

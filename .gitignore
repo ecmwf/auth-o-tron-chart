@@ -3,3 +3,7 @@
 /.idea/*
 .vscode
 .DS_Store
+__pycache__/
+.ruff_cache/
+.venv/
+.application-schema/

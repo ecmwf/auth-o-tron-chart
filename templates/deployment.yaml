@@ -61,16 +61,18 @@ spec:
               port: http-auth
             initialDelaySeconds: 3
             periodSeconds: 5
-          {{- if or .Values.extraEnv .Values.browserState.passwordSecret.name }}
+          {{- $backend := dig "ui" "browser_session" "backend" (dict) .Values.config }}
+          {{- $browserPassword := and (eq $backend.type "valkey") .Values.browserState.passwordSecret.name }}
+          {{- if or .Values.extraEnv $browserPassword }}
           env:
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-            {{- with .Values.browserState.passwordSecret.name }}
+            {{- if $browserPassword }}
             - name: AOT_UI__BROWSER_SESSION__BACKEND__PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ . | quote }}
+                  name: {{ .Values.browserState.passwordSecret.name | quote }}
                   key: {{ $.Values.browserState.passwordSecret.key | quote }}
             {{- end }}
           {{- end }}
