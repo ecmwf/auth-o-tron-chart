@@ -63,10 +63,11 @@
       {{- end -}}
     {{- end -}}
   {{- end -}}
-  {{- if and $v.metrics.enabled $v.metrics.service.enabled (eq $appFullname (printf "%s-metrics" $valkeyFullname)) -}}
+  {{- $metricsService := and $v.metrics.enabled $v.metrics.service.enabled -}}
+  {{- if and $metricsService (eq $appFullname (printf "%s-metrics" $valkeyFullname)) -}}
     {{- fail "application Service name collides with bundled Valkey metrics Service name; set fullnameOverride or valkey.fullnameOverride to distinct resource names" -}}
   {{- end -}}
-  {{- if and $v.metrics.enabled $v.metrics.service.enabled (gt (len $valkeyFullname) 55) -}}
+  {{- if and $metricsService (gt (len $valkeyFullname) 55) -}}
     {{- fail "bundled Valkey fullname must be at most 55 characters with its metrics Service enabled to fit the upstream -metrics suffix" -}}
   {{- end -}}
   {{- if ne $v.deploymentStrategy "Recreate" -}}

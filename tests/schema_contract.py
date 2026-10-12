@@ -90,7 +90,8 @@ def main():
         "application contract drift; regenerate and review"
     )
     verify_chart(contract)
-    print("Application schema parity passed (12 bounds and in-flight default).")
+    count = len(contract["session"]) + len(contract["backend"])
+    print(f"Application schema parity passed ({count} bounds and in-flight default).")
 
 
 if __name__ == "__main__":

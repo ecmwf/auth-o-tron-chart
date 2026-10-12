@@ -121,7 +121,7 @@ Logo and sign-in URLs must be HTTPS absolute URLs without userinfo, or root-rela
 
 The current default image **`0.3.6` lacks the UI endpoints**. To test, override `image.repository` and `image.tag` with an image built from `feat/login-ui-shell`. An eventual released version containing the UI is required for released deployments.
 
-### Shared browser state (chart 0.4.0)
+### Shared browser state (since chart 0.4.0)
 
 The canonical chart interface is `config.ui.browser_session.backend.type`
 (`valkey` or explicit development-only `memory`) plus
@@ -349,8 +349,8 @@ The chart and container packaging are BSD-3-Clause; Valkey declares BSD-3-Clause
 omits its license file, so its exact version's notice is retained separately in
 [`VALKEY-LICENSE.txt`](VALKEY-LICENSE.txt). Auth-O-Tron's chart remains Apache-2.0.
 
-Offline checks require Helm 3.7+ or Helm 4 and Python 3.10+ with the test
-dependencies installed (PyYAML and Ruff):
+Offline checks are tested with Helm 3.17.3 and 4.0.1 and Python 3.12, with the
+test dependencies installed (PyYAML and Ruff):
 
 ```bash
 python3 -m pip install -r tests/requirements.txt
@@ -386,7 +386,7 @@ source before deploying it. A version string alone does not identify a feature
 build.
 
 CI checks out that exact application commit, verifies the schema hash, and
-re-extracts the contract. It compares all twelve numeric bounds/types with the
+re-extracts the contract. It compares all numeric bounds/types with the
 chart schema; render tests also exercise both sides of the application's
 default in-flight limit (8). Boundary tests consume this generated fixture,
 rather than another handwritten numeric table. Chart-only topology rules are
@@ -417,6 +417,10 @@ parity. The pin guards the declared supported version, not future application
 commits automatically; each supported image-source update must update/verify
 this pin. The application repository's own generated-schema tests remain
 responsible for schema-to-runtime parity.
+
+Cross-repository pins: this chart's server pin lives only in
+`tests/application-contract.json`; the server's reverse chart pin lives only in
+its `.github/workflows/ci.yaml` (see its `.github/CI.md` for the bump order).
 
 Contracts cover defaults/disabled, the five-resource ingress preview, API-only
 bundled Valkey, direct Basic bundled state, external primary, memory replica

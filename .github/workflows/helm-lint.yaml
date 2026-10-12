@@ -52,16 +52,9 @@ jobs:
 
       - name: Read application schema pin
         id: schema
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          source = json.loads(Path('tests/application-contract.json').read_text())['source']
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              for key in ('repository', 'commit', 'path'):
-                  print(f'{key}={source[key]}', file=output)
-          PY
+        run: >-
+          jq -r '.source | "repository=\(.repository)", "commit=\(.commit)", "path=\(.path)"'
+          tests/application-contract.json >> "$GITHUB_OUTPUT"
 
       - name: Checkout version-matched application schema
         uses: actions/checkout@v4
