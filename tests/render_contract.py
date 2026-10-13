@@ -319,6 +319,26 @@ class Contracts(unittest.TestCase):
         self.assertEqual(len(preview), 5)
         self.assertNotIn("browser_session", config(preview)["ui"])
 
+    def test_extra_volumes_and_mounts(self):
+        volume = {
+            "name": "oidc",
+            "secret": {"secretName": "authotron-oidc", "defaultMode": 292},
+        }
+        mount = {"name": "oidc", "mountPath": "/run/secrets/oidc", "readOnly": True}
+        pod = app(render())["spec"]["template"]["spec"]
+        self.assertEqual([v["name"] for v in pod["volumes"]], ["config-volume"])
+        docs = render({"extraVolumes": [volume], "extraVolumeMounts": [mount]})
+        pod = app(docs)["spec"]["template"]["spec"]
+        self.assertEqual(pod["volumes"][0]["name"], "config-volume")
+        self.assertEqual(pod["volumes"][1:], [volume])
+        mounts = pod["containers"][0]["volumeMounts"]
+        self.assertEqual(mounts[0]["name"], "config-volume")
+        self.assertEqual(mounts[1:], [mount])
+        error = render(
+            {"extraVolumes": [{"name": "config-volume", "emptyDir": {}}]}, failed=True
+        )
+        self.assertIn("must not reuse the chart's config-volume name", error)
+
     def test_api_only_bundled_does_not_enable_ui(self):
         docs = render(BUNDLED)
         self.assertEqual(config(docs)["ui"], {})

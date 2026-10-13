@@ -141,6 +141,26 @@ podAnnotations: {}
 #           key: token
 extraEnv: []
 
+# -- Extra pod volumes, e.g. a Secret with files the configuration references,
+# such as an OIDC method's client_secret_file or oauth.upstream_token_encryption
+# key files. The container runs as uid 1000 without an fsGroup, so Secret files
+# must be world-readable inside the pod (the default mode 0644, or 0444).
+# Example:
+#   extraVolumes:
+#     - name: oidc
+#       secret:
+#         secretName: authotron-oidc
+#         defaultMode: 0444
+extraVolumes: []
+
+# -- Mounts of extraVolumes into the auth-o-tron container.
+# Example:
+#   extraVolumeMounts:
+#     - name: oidc
+#       mountPath: /run/secrets/oidc
+#       readOnly: true
+extraVolumeMounts: []
+
 # -- Kubernetes Service configuration
 service:
   type: ClusterIP

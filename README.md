@@ -122,8 +122,29 @@ OpenID Connect methods in `config.ui.oidc` also count as direct login and need
 `config.ui.browser_session` with an explicit backend. Each is served at
 `/login/method/<id>` and redirects back to `/login/method/<id>/callback`, which
 must be routed and registered at the identity provider. Their
-`client_secret_file` must be a file inside the pod; the chart does not yet mount
-extra Secret volumes, so mount it by other means or use `client_auth: none`.
+`client_secret_file`, like the key files of `config.oauth.upstream_token_encryption`,
+must be a file inside the pod: mount a Secret with `extraVolumes` and
+`extraVolumeMounts`, for example
+
+```yaml
+extraVolumes:
+  - name: oidc
+    secret:
+      secretName: authotron-oidc # keys client-secret and upstream.key
+      defaultMode: 0444 # the container runs as uid 1000 without an fsGroup
+extraVolumeMounts:
+  - name: oidc
+    mountPath: /run/secrets/oidc
+    readOnly: true
+config:
+  ui:
+    oidc:
+      - id: demo-sso
+        # ...
+        client_secret_file: /run/secrets/oidc/client-secret
+```
+
+The volume name `config-volume` is reserved for the chart's configuration.
 
 The page links to origin-root `/static/login.css` and `/favicon.ico` assets. Prefix-rewriting ingresses must also route those root paths; the preview has no configurable base path.
 
