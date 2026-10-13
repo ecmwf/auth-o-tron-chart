@@ -186,12 +186,20 @@ bounds and persistence belong to its operator.
 
 Bundled Valkey is one authenticated standalone Deployment, ClusterIP port 6379,
 with `Recreate` updates, bounded server and init resources, and no ingress. It is
-**not HA**: outages interrupt direct login/session access. Default
-`valkey.dataStorage.enabled: false`, `save ""`, and `appendonly no` make state
-ephemeral. Losing the backend clears browser sessions/forms/rate state and logs
-users out. Persistence is optional via the upstream `dataStorage` fields, but
-enabling a volume alone does not enable snapshots/AOF: configure both storage and
-`valkey.valkeyConfig` deliberately. Default `maxmemory 64mb` and
+**not HA**: outages interrupt direct login/session access. State is durable by
+default: `valkey.dataStorage` creates a `ReadWriteOnce` 1Gi PersistentVolumeClaim
+(`className: ""` uses the cluster default StorageClass; set `requestedSize`,
+`className` and `accessModes` as needed) mounted at `/data`, and
+`valkey.valkeyConfig` enables `appendonly yes` with `appendfsync everysec` and
+`save ""` (AOF only, at most about one second of writes lost on a crash). OAuth
+refresh tokens live only in Valkey, so keep both: a volume without AOF, or AOF on
+`emptyDir`, loses them on restart. Auth-O-Tron logs
+`oauth.refresh_token.store_not_durable` at startup when refresh tokens are enabled
+and Valkey reports AOF off. Setting `valkey.dataStorage.enabled: false` makes state
+ephemeral again. Upgrading from an ephemeral release discards existing state once.
+Losing the backend clears browser sessions/forms/rate state and refresh tokens:
+users sign in again. External Valkey (dependency disabled) must provide equivalent
+persistence itself. Default `maxmemory 64mb` and
 `maxmemory-policy noeviction` fail writes at capacity rather than evicting active
 state. Keep maxmemory below the container memory limit with overhead headroom.
 Tune `valkey.resources`, `valkey.initResources` and `valkey.valkeyConfig` together.

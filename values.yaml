@@ -28,8 +28,14 @@ valkey:
     type: ClusterIP
     port: 6379
   deploymentStrategy: Recreate
+  # -- AOF on a ReadWriteOnce claim keeps sessions and OAuth refresh tokens across
+  # Valkey restarts. className "" uses the cluster default StorageClass.
   dataStorage:
-    enabled: false
+    enabled: true
+    requestedSize: 1Gi
+    className: ""
+    accessModes:
+      - ReadWriteOnce
   auth:
     enabled: true
     usersExistingSecret: ""
@@ -39,7 +45,8 @@ valkey:
         passwordKey: default
   valkeyConfig: |
     save ""
-    appendonly no
+    appendonly yes
+    appendfsync everysec
     maxmemory 64mb
     maxmemory-policy noeviction
   resources:

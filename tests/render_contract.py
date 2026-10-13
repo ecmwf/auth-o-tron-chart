@@ -324,11 +324,24 @@ class Contracts(unittest.TestCase):
         self.assertEqual(config(docs)["ui"], {})
         self.assertNotIn("env", app(docs)["spec"]["template"]["spec"]["containers"][0])
         self.assertFalse(
-            any(
-                d["kind"]
-                in ("Ingress", "PersistentVolumeClaim", "StatefulSet", "Secret")
-                for d in docs
-            )
+            any(d["kind"] in ("Ingress", "StatefulSet", "Secret") for d in docs)
+        )
+        claims = [d for d in docs if d["kind"] == "PersistentVolumeClaim"]
+        self.assertEqual(len(claims), 1)
+        self.assertEqual(claims[0]["spec"]["accessModes"], ["ReadWriteOnce"])
+        self.assertEqual(claims[0]["spec"]["resources"]["requests"]["storage"], "1Gi")
+        self.assertNotIn("storageClassName", claims[0]["spec"])
+        valkey_conf = next(
+            d["data"]["valkey.conf"]
+            for d in docs
+            if d["kind"] == "ConfigMap" and "valkey.conf" in d.get("data", {})
+        ).splitlines()
+        for line in ("appendonly yes", "appendfsync everysec", 'save ""'):
+            self.assertIn(line, valkey_conf)
+        ephemeral = copy.deepcopy(BUNDLED)
+        ephemeral["valkey"]["dataStorage"] = {"enabled": False}
+        self.assertFalse(
+            any(d["kind"] == "PersistentVolumeClaim" for d in render(ephemeral))
         )
         values = copy.deepcopy(BUNDLED)
         values["extraEnv"] = [{"name": "RUST_LOG", "value": "info"}]
@@ -428,7 +441,15 @@ class Contracts(unittest.TestCase):
                 self.assertEqual(
                     spec["containers"][0]["resources"]["limits"]["memory"], "256Mi"
                 )
-                self.assertIn({"name": "valkey-data", "emptyDir": {}}, spec["volumes"])
+                self.assertIn(
+                    {
+                        "name": "valkey-data",
+                        "persistentVolumeClaim": {
+                            "claimName": valkey["metadata"]["name"]
+                        },
+                    },
+                    spec["volumes"],
+                )
                 self.assertIn(
                     {
                         "name": "valkey-users-secret",
