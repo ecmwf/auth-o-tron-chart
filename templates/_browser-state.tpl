@@ -4,11 +4,13 @@
 {{- printf "authotron:browser:%s" ($identity | toJson | sha256sum | trunc 32) -}}
 {{- end -}}
 
-{{/* Render "true" when any provider has a non-null browser map; `browser: null` means API-only. */}}
+{{/* Render "true" when any provider has a non-null browser map (`browser: null` means
+API-only) or config.ui.oidc lists an OIDC sign-in method. */}}
 {{- define "authotron.hasBrowserMethod" -}}
 {{- range (default list .Values.config.providers) -}}
 {{- if and (kindIs "map" .) (kindIs "map" .browser) -}}true{{- end -}}
 {{- end -}}
+{{- if (default dict .Values.config.ui).oidc -}}true{{- end -}}
 {{- end -}}
 
 {{/* Validate before serialization; error messages never interpolate credentials. */}}
@@ -42,25 +44,39 @@
 {{- if gt (int $passwordEnvs) 1 -}}
   {{- fail "browser password extraEnv must contain at most one secretKeyRef entry" -}}
 {{- end -}}
-{{/* Cross-provider rules JSON Schema cannot express; per-field shape is schema-validated. */}}
-{{- $ids := dict -}}
-{{- $labels := dict -}}
-{{- $methods := 0 -}}
+{{/* Cross-method rules JSON Schema cannot express; per-field shape is schema-validated.
+Provider browser blocks and config.ui.oidc methods share ids, labels and the limit of 16.
+An OIDC realm must differ from every provider realm and from the other OIDC realms. */}}
+{{- $methodSpecs := list -}}
+{{- $realms := dict -}}
 {{- range (default list $config.providers) -}}
-  {{- if and (kindIs "map" .) (kindIs "map" .browser) -}}
-    {{- $methods = add1 $methods -}}
-    {{- if hasKey .browser "id" -}}
-      {{- $id := toString .browser.id -}}
-      {{- if hasKey $ids $id -}}{{- fail (printf "provider browser id %q must be unique" $id) -}}{{- end -}}
-      {{- $_ := set $ids $id true -}}
-    {{- end -}}
-    {{- $label := default "" .browser.label | toString | trim | lower -}}
-    {{- if hasKey $labels $label -}}{{- fail "provider browser labels must be unique (case-insensitive, trimmed)" -}}{{- end -}}
-    {{- $_ := set $labels $label true -}}
+  {{- if kindIs "map" . -}}
+    {{- if kindIs "map" .browser -}}{{- $methodSpecs = append $methodSpecs .browser -}}{{- end -}}
+    {{- if hasKey . "realm" -}}{{- $_ := set $realms (toString .realm) true -}}{{- end -}}
   {{- end -}}
 {{- end -}}
-{{- if gt (int $methods) 16 -}}
-  {{- fail "at most 16 providers may declare a browser block" -}}
+{{- range (default list $ui.oidc) -}}
+  {{- if kindIs "map" . -}}
+    {{- $methodSpecs = append $methodSpecs . -}}
+    {{- $realm := toString .realm -}}
+    {{- if hasKey $realms $realm -}}{{- fail (printf "ui.oidc realm %q must differ from every provider realm and other ui.oidc realm" $realm) -}}{{- end -}}
+    {{- $_ := set $realms $realm true -}}
+  {{- end -}}
+{{- end -}}
+{{- $ids := dict -}}
+{{- $labels := dict -}}
+{{- range $methodSpecs -}}
+  {{- if hasKey . "id" -}}
+    {{- $id := toString .id -}}
+    {{- if hasKey $ids $id -}}{{- fail (printf "browser method id %q must be unique across provider browser blocks and ui.oidc" $id) -}}{{- end -}}
+    {{- $_ := set $ids $id true -}}
+  {{- end -}}
+  {{- $label := default "" .label | toString | trim | lower -}}
+  {{- if hasKey $labels $label -}}{{- fail "browser method labels must be unique (case-insensitive, trimmed)" -}}{{- end -}}
+  {{- $_ := set $labels $label true -}}
+{{- end -}}
+{{- if gt (len $methodSpecs) 16 -}}
+  {{- fail "at most 16 browser methods (provider browser blocks and ui.oidc entries) are allowed" -}}
 {{- end -}}
 {{- if and (include "authotron.hasBrowserMethod" .) (not $backend.type) -}}
   {{- fail "direct browser login requires config.ui.browser_session.backend.type" -}}

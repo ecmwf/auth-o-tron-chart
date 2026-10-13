@@ -855,7 +855,7 @@ class Contracts(unittest.TestCase):
 
         providers_result([browser_provider(i) for i in range(16)], False)
         self.assertIn(
-            "at most 16 providers",
+            "at most 16 browser methods",
             providers_result([browser_provider(i) for i in range(17)], True),
         )
         api_only = [dict(browser_provider(i), browser=None) for i in range(20)]
@@ -879,7 +879,7 @@ class Contracts(unittest.TestCase):
         providers_result(distinct, False)
         duplicate = [browser_provider(1), browser_provider(2, id="method-1")]
         self.assertIn(
-            'browser id "method-1" must be unique',
+            'browser method id "method-1" must be unique',
             providers_result(duplicate, True),
         )
         for ui in [{"enabled": True}, {"enabled": True, "browser_session": None}]:
@@ -889,6 +889,64 @@ class Contracts(unittest.TestCase):
                     "requires config.ui.browser_session.backend.type",
                     render(values, failed=True),
                 )
+
+    def test_oidc_methods_share_browser_rules_and_need_distinct_realms(self):
+        def oidc(index, **fields):
+            method = {
+                "id": f"sso-{index}",
+                "label": f"SSO {index}",
+                "realm": f"idp-{index}",
+                "issuer": "https://idp.example.test/realms/demo",
+                "client_id": "authotron",
+                "client_auth": "none",
+            }
+            method.update(fields)
+            return method
+
+        def oidc_result(methods, failed, providers=None):
+            values = copy.deepcopy(BUNDLED)
+            values["config"] = direct_config()
+            if providers is not None:
+                values["config"]["providers"] = providers
+            values["config"]["ui"]["oidc"] = methods
+            return render(values, failed=failed)
+
+        docs = oidc_result([oidc(1)], False, providers=[])
+        self.assertEqual(config(docs)["ui"]["oidc"], [oidc(1)])
+        self.assertIn(
+            "requires config.ui.browser_session.backend.type",
+            render(
+                {
+                    "config": {
+                        "providers": [],
+                        "ui": {"enabled": True, "oidc": [oidc(1)]},
+                    }
+                },
+                failed=True,
+            ),
+        )
+        oidc_result([oidc(i) for i in range(15)], False)
+        self.assertIn(
+            "at most 16 browser methods",
+            oidc_result([oidc(i) for i in range(16)], True),
+        )
+        for method, error in [
+            (oidc(1, id="password"), 'browser method id "password" must be unique'),
+            (oidc(1, label="USERNAME AND PASSWORD"), "labels must be unique"),
+            (oidc(1, realm="browser"), 'ui.oidc realm "browser" must differ'),
+        ]:
+            with self.subTest(method=method):
+                self.assertIn(error, oidc_result([method], True))
+        self.assertIn(
+            'ui.oidc realm "idp-1" must differ',
+            oidc_result([oidc(1), oidc(2, realm="idp-1")], True),
+        )
+        schema_failure(
+            oidc_result([oidc(1, id="callback")], True), "config/ui/oidc/0/id"
+        )
+        schema_failure(
+            oidc_result([oidc(1, client_secret="inline")], True), "config/ui/oidc/0"
+        )
 
     def test_rejections_and_secret_redaction(self):
         sentinel = "DO_NOT_LEAK_PASSWORD_12345"

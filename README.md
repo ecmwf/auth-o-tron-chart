@@ -101,6 +101,7 @@ duplicated in `values.yaml`.
 | `config.ui.branding.description` | Escaped plain-text description; omitted when null/blank | `null` |
 | `config.ui.sso` | Configured `{label, start_url}` browser-client SSO links | `[]` |
 | `config.providers[].browser` | Optional `{label}` on `plain`/`ecmwf-api` providers enabling direct browser login; labels must be unique, absent = API-only | omitted |
+| `config.ui.oidc` | OpenID Connect sign-in methods; ids, labels and the limit of 16 browser methods are shared with provider `browser` blocks, and each realm must differ from every provider realm and other `ui.oidc` realm | `[]` |
 | `config.ui.browser_session` | Shared direct-login origin, expiry, bounds and backend settings (below) | omitted |
 
 With no SSO links or direct login, the page remains a **branding preview**. Configured `ui.sso` links navigate to trusted application-owned browser login start endpoints; their browser client/identity provider implements OAuth/OIDC and registers its callback separately. The entry page is not an OAuth authorization server. `GET /login` and `GET /static/login.css` require no authentication and exist only when enabled, on the main application port. If ingress paths are restricted, route both paths. Existing `/` and `/authenticate` behavior is unchanged. The footer is fixed to [Powered by Auth-O-Tron](https://github.com/ecmwf/auth-o-tron).
@@ -116,6 +117,13 @@ providers in `config.providers` order; route those paths, `/login/account` and
 application callback or automatic bearer-API authentication; the Auth-O-Tron
 token store remains unused. Preview behavior applies only when neither SSO links
 nor direct login are configured.
+
+OpenID Connect methods in `config.ui.oidc` also count as direct login and need
+`config.ui.browser_session` with an explicit backend. Each is served at
+`/login/method/<id>` and redirects back to `/login/method/<id>/callback`, which
+must be routed and registered at the identity provider. Their
+`client_secret_file` must be a file inside the pod; the chart does not yet mount
+extra Secret volumes, so mount it by other means or use `client_auth: none`.
 
 The page links to origin-root `/static/login.css` and `/favicon.ico` assets. Prefix-rewriting ingresses must also route those root paths; the preview has no configurable base path.
 
