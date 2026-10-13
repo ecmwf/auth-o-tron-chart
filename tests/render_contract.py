@@ -709,13 +709,6 @@ class Contracts(unittest.TestCase):
         for providers, inactive in [
             ([api_only], {}),
             ([api_only], {"enabled": True}),
-            (
-                [api_only],
-                {
-                    "enabled": True,
-                    "sso": [{"label": "SSO", "start_url": "/oauth2/start"}],
-                },
-            ),
             ([api_only], copy.deepcopy(DIRECT)),
             ([BROWSER_PROVIDER], {**copy.deepcopy(DIRECT), "enabled": False}),
         ]:

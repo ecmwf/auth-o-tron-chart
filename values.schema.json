@@ -154,9 +154,9 @@
       ],
       "x-authotron-source": {
         "repository": "ecmwf/auth-o-tron",
-        "commit": "6e55c6803c79dd144e31033f8929cd86404d3a50",
+        "commit": "d7399cffb460119a123284173579ba89319b117a",
         "path": "authotron/schema.json",
-        "sha256": "54f912c3f919484573c9608250372fc4ce58bc950b3449c71045ec82d4ae36d5"
+        "sha256": "235eaf97e018680c8ad325e1616f1e21e03975b40bea4db598b739184b2dc4e6"
       }
     }
   },
@@ -981,7 +981,7 @@
       }
     },
     "authotron.UiConfig": {
-      "description": "Controls branding, trusted SSO links, and the shared direct-login session.\n\nDirect browser login methods are declared by `browser` blocks on `plain`\nand `ecmwf-api` providers and by OpenID Connect methods in `oidc`.",
+      "description": "Controls branding and the shared direct-login session.\n\nDirect browser login methods are declared by `browser` blocks on `plain`\nand `ecmwf-api` providers and by OpenID Connect methods in `oidc`.",
       "type": "object",
       "properties": {
         "enabled": {
@@ -1002,13 +1002,6 @@
               }
             }
           ]
-        },
-        "sso": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/authotron.BrowserSignInAction"
-          },
-          "default": []
         },
         "oidc": {
           "description": "OpenID Connect sign-in methods, offered after provider methods.",
@@ -1067,25 +1060,8 @@
       }
     },
     "authotron.UiUrl": {
-      "description": "A URL for escaped UI image and navigation attributes.\n\nHTTPS URLs and root-relative paths such as `/assets/aviso.png` are accepted.\nScheme-relative URLs such as `//other.example/logo.png`, script URLs such\nas `javascript:alert(1)`, and URLs containing credentials are rejected.",
+      "description": "A URL for escaped UI attributes, such as the logo, and the browser public origin.\n\nHTTPS URLs and root-relative paths such as `/assets/aviso.png` are accepted.\nScheme-relative URLs such as `//other.example/logo.png`, script URLs such\nas `javascript:alert(1)`, and URLs containing credentials are rejected.",
       "type": "string"
-    },
-    "authotron.BrowserSignInAction": {
-      "description": "An operator-configured entry into an application's browser login flow.",
-      "type": "object",
-      "properties": {
-        "label": {
-          "type": "string"
-        },
-        "start_url": {
-          "$ref": "#/definitions/authotron.UiUrl"
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "label",
-        "start_url"
-      ]
     },
     "authotron.OidcMethodConfig": {
       "description": "One identity provider offered as a browser sign-in method. The redirect URI\nregistered at the provider is `<public_origin>/login/method/<id>/callback`.",
@@ -1980,8 +1956,7 @@
                   "logo_url": null,
                   "title": null,
                   "description": null
-                },
-                "sso": []
+                }
               }
             }
           ]

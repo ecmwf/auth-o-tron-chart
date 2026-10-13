@@ -99,12 +99,11 @@ duplicated in `values.yaml`.
 | `config.ui.branding.logo_url` | Optional validated HTTPS absolute URL or root-relative path | `null` |
 | `config.ui.branding.title` | Escaped plain-text title; null/blank renders `Sign in to {application_name}` | `null` |
 | `config.ui.branding.description` | Escaped plain-text description; omitted when null/blank | `null` |
-| `config.ui.sso` | Configured `{label, start_url}` browser-client SSO links | `[]` |
 | `config.providers[].browser` | Optional `{label}` on `plain`/`ecmwf-api` providers enabling direct browser login; labels must be unique, absent = API-only | omitted |
 | `config.ui.oidc` | OpenID Connect sign-in methods; ids, labels and the limit of 16 browser methods are shared with provider `browser` blocks, and each realm must differ from every provider realm and other `ui.oidc` realm | `[]` |
 | `config.ui.browser_session` | Shared direct-login origin, expiry, bounds and backend settings (below) | omitted |
 
-With no SSO links or direct login, the page remains a **branding preview**. Configured `ui.sso` links navigate to trusted application-owned browser login start endpoints; their browser client/identity provider implements OAuth/OIDC and registers its callback separately. The entry page is not an OAuth authorization server. `GET /login` and `GET /static/login.css` require no authentication and exist only when enabled, on the main application port. If ingress paths are restricted, route both paths. Existing `/` and `/authenticate` behavior is unchanged. The footer is fixed to [Powered by Auth-O-Tron](https://github.com/ecmwf/auth-o-tron).
+Without direct login, the page remains a **branding preview**. External identity providers are offered as OpenID Connect methods in `config.ui.oidc`; the former `config.ui.sso` links were removed and are rejected by the schema. `GET /login` and `GET /static/login.css` require no authentication and exist only when enabled, on the main application port. If ingress paths are restricted, route both paths. Existing `/` and `/authenticate` behavior is unchanged. The footer is fixed to [Powered by Auth-O-Tron](https://github.com/ecmwf/auth-o-tron).
 
 Direct Basic (`plain`) and ECMWF API-key (`ecmwf-api`) login are opt-in per
 provider via its `browser: {label: ...}` block, independent of OIDC. Any such
@@ -115,8 +114,8 @@ after verification. Each browser-enabled provider is served at
 providers in `config.providers` order; route those paths, `/login/account` and
 `/login/logout` too. This is not an Aviso
 application callback or automatic bearer-API authentication; the Auth-O-Tron
-token store remains unused. Preview behavior applies only when neither SSO links
-nor direct login are configured.
+token store remains unused. Preview behavior applies only when no direct login
+is configured.
 
 OpenID Connect methods in `config.ui.oidc` also count as direct login and need
 `config.ui.browser_session` with an explicit backend. Each is served at
@@ -536,8 +535,8 @@ session count, request rate or configured concurrency limit.
 
 The gauge can be registered at zero even when direct login is inactive. Therefore
 this HPA target requires `config.ui.enabled: true` and at least one provider in
-`config.providers` with a `browser` block. UI disabled,
-branding-only and SSO-link-only configurations cannot use it; API-only CPU HPA
+`config.providers` with a `browser` block. UI-disabled and branding-only
+configurations cannot use it; API-only CPU HPA
 remains supported.
 
 The target must be **strictly below** the effective
