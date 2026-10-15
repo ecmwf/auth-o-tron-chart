@@ -535,6 +535,70 @@ class Contracts(unittest.TestCase):
             {"type": "memory"},
         )
 
+    def test_valkey_refresh_tokens_require_the_retry_key_file(self):
+        resource = "https://mcp.example.test/mcp"
+        oauth = {
+            "enabled": True,
+            "issuer": "https://login.example.test/",
+            "signing": {
+                "active_kid": "k",
+                "keys": [{"kid": "k", "private_key_file": "/run/secrets/oauth/k.pem"}],
+            },
+            "clients": [
+                {
+                    "client_id": "cli",
+                    "display_name": "CLI",
+                    "application_type": "native",
+                    "redirect_uris": ["http://127.0.0.1/callback"],
+                    "resources": [{"resource": resource, "scopes": ["read"]}],
+                    "refresh_tokens": {"enabled": True},
+                }
+            ],
+            "resources": [
+                {
+                    "resource": resource,
+                    "allowed_realms": ["browser"],
+                    "scopes": [{"name": "read", "required_roles": []}],
+                }
+            ],
+        }
+        external = copy.deepcopy(DIRECT)
+        external["browser_session"]["backend"]["url"] = (
+            "redis://primary.example.test:6379/0"
+        )
+        for state, ui in (
+            (BUNDLED, DIRECT),
+            ({"browserState": BUNDLED["browserState"]}, external),
+        ):
+            values = copy.deepcopy(state)
+            values["config"] = {
+                **direct_config(copy.deepcopy(ui)),
+                "oauth": copy.deepcopy(oauth),
+            }
+            error = render(values, failed=True)
+            self.assertIn("require config.oauth.refresh_token_retry_key_file", error)
+            values["config"]["oauth"]["refresh_token_retry_key_file"] = (
+                "/run/secrets/oauth/retry.key"
+            )
+            self.assertEqual(
+                config(render(values))["oauth"]["refresh_token_retry_key_file"],
+                "/run/secrets/oauth/retry.key",
+            )
+        # Without refresh tokens, without OAuth, or with memory sessions, none is needed.
+        for change in ("no refresh", "disabled", "memory"):
+            values = copy.deepcopy(BUNDLED)
+            values["config"] = {**direct_config(), "oauth": copy.deepcopy(oauth)}
+            if change == "no refresh":
+                values["config"]["oauth"]["clients"][0].pop("refresh_tokens")
+            elif change == "disabled":
+                values["config"]["oauth"]["enabled"] = False
+            else:
+                values = {"config": values["config"]}
+                values["config"]["ui"]["browser_session"]["backend"] = {
+                    "type": "memory"
+                }
+            self.assertTrue(render(values), change)
+
     def test_custom_secret_key_and_empty_password_placeholder(self):
         values = copy.deepcopy(BUNDLED)
         values["browserState"]["passwordSecret"]["key"] = "browser-password"

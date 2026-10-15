@@ -145,6 +145,14 @@ config:
 
 The volume name `config-volume` is reserved for the chart's configuration.
 
+OAuth refresh tokens stored in Valkey (bundled or external) also need
+`config.oauth.refresh_token_retry_key_file`: 32 random bytes in standard Base64,
+the same on every replica and distinct from the upstream token keys, mounted from a
+Secret the same way (for example `openssl rand -base64 32` into a key `retry.key`).
+Rendering fails when an enabled client has `refresh_tokens.enabled` and the file is
+not set, as the server would refuse to start. Replacing the key only makes retries
+that span the change fail; see the Auth-O-Tron OAuth documentation's *Retries*.
+
 The page links to origin-root `/static/login.css` and `/favicon.ico` assets. Prefix-rewriting ingresses must also route those root paths; the preview has no configurable base path.
 
 Logo and sign-in URLs must be HTTPS absolute URLs without userinfo, or root-relative paths starting with `/` but not `//`; backslashes, control characters, and whitespace are forbidden. Invalid values or schemes reject the configuration. Sign-in labels must not be blank. Destinations come only from operator configuration, not request callback/return parameters. A root-relative logo must already be served by your origin or ingress; the server does not fetch URLs or read arbitrary local files. Mounted-logo assets and color settings are not implemented.
