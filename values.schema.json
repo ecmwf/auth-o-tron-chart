@@ -154,9 +154,9 @@
       ],
       "x-authotron-source": {
         "repository": "ecmwf/auth-o-tron",
-        "commit": "04559c025e0548f71284721f7a7f0d985944d89f",
+        "commit": "dac044790adedfc762829003c0b0b9462c06deb9",
         "path": "authotron/schema.json",
-        "sha256": "2c8e5b87001b53b4f76d8a7b12ba7b53ffeef79ec757a657eb834bb84eb153a1"
+        "sha256": "fecb2c0ed0befd769fe50a9389d7ffb17500ef6ffbe4e7c40e42f1510b624307"
       }
     }
   },
@@ -1567,6 +1567,14 @@
             }
           ],
           "default": null
+        },
+        "refresh_token_retry_key_file": {
+          "description": "File holding 32 bytes of standard Base64, the same on every replica, mixed into\nthe key that seals each rotated refresh token for retries. Required when a client\nenables refresh tokens and the browser-session backend is Valkey; without it, a\nmemory store uses a random key per process.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
         }
       },
       "additionalProperties": false
@@ -1767,6 +1775,17 @@
           },
           "minItems": 1,
           "maxItems": 32
+        },
+        "identity_claims": {
+          "description": "Identity claims that access tokens for this resource carry, for a resource\nserver that decides from the user's realm and roles itself.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/authotron.IdentityClaims"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -1794,6 +1813,27 @@
       "required": [
         "name",
         "required_roles"
+      ]
+    },
+    "authotron.IdentityClaims": {
+      "description": "With identity claims, an access token carries `realm`, the user's realm, and `roles`,\nthe user's roles after augmentation that `roles` names, sorted and unique, instead\nof the granted scopes' required roles.",
+      "type": "object",
+      "properties": {
+        "roles": {
+          "description": "Role names, compared exactly, 1-128 bytes without control characters or\nsurrounding whitespace; `[\"*\"]` alone names every role.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "minItems": 1,
+          "maxItems": 64
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "roles"
       ]
     },
     "authotron.OAuthSigningConfig": {
@@ -2003,7 +2043,8 @@
                 "clients": [],
                 "resources": [],
                 "signing": null,
-                "upstream_token_encryption": null
+                "upstream_token_encryption": null,
+                "refresh_token_retry_key_file": null
               }
             }
           ]
