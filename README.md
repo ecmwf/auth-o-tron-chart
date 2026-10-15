@@ -110,10 +110,10 @@ provider via its `browser: {label: ...}` block, independent of OIDC. Any such
 method requires `config.ui.browser_session` with an explicit backend and
 HTTPS `public_origin`, and create a short-lived Auth-O-Tron identity-view session
 after verification. Each browser-enabled provider is served at
-`/login/method/<n>`, where `n` is its 0-based index among browser-enabled
-providers in `config.providers` order; route those paths, `/login/account` and
-`/login/logout` too. This is not an Aviso
-application callback or automatic bearer-API authentication; the Auth-O-Tron
+`/login/method/<id>`, where `id` is its `browser.id`; route those paths,
+`/login/account` and `/login/logout` too, and `/login/account/logins/revoke` when an
+OAuth client has refresh tokens (a `/login/` prefix covers them all). This is not an
+Aviso application callback or automatic bearer-API authentication; the Auth-O-Tron
 token store remains unused. Preview behavior applies only when no direct login
 is configured.
 
