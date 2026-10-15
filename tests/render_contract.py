@@ -88,6 +88,14 @@ def schema_failure(error, path, message=""):
     assert hits, f"no schema error at {path!r} containing {message!r}:\n{error}"
 
 
+def helm4(error):
+    """Whether a schema rejection is Helm 4's, which says "missing property 'backend'"
+    and names extra fields at JSON pointers such as `at '/config/ui'`, where Helm 3
+    writes "config.ui: backend is required" and leaves an extra field of a failed
+    oneOf branch unnamed."""
+    return "at '/" in error
+
+
 def config(docs):
     return next(
         yaml.safe_load(d["data"]["config.yaml"])
@@ -1191,11 +1199,12 @@ class Contracts(unittest.TestCase):
             values = copy.deepcopy(BUNDLED)
             values["config"] = direct_config()
             del values["config"]["ui"]["browser_session"][missing]
-            schema_failure(
-                render(values, failed=True),
-                "config/ui/browser_session",
-                f"missing property '{missing}'",
-            )
+            error = render(values, failed=True)
+            if helm4(error):
+                message = f"missing property '{missing}'"
+            else:
+                message = f"{missing} is required"
+            schema_failure(error, "config/ui/browser_session", message)
         for origin in [
             "/login",
             "https://login.test/path",
@@ -1220,11 +1229,10 @@ class Contracts(unittest.TestCase):
                 "type": "memory",
                 field: "",
             }
-            schema_failure(
-                render(values, failed=True),
-                "config/ui/browser_session/backend",
-                field,
-            )
+            error = render(values, failed=True)
+            # Helm 3 reports the failed oneOf of the backend without naming the field.
+            message = field if helm4(error) else ""
+            schema_failure(error, "config/ui/browser_session/backend", message)
         values = {
             "config": direct_config(),
             "browserState": copy.deepcopy(BUNDLED["browserState"]),
