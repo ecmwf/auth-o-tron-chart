@@ -2113,7 +2113,7 @@
      "range": true
     }
    ],
-   "description": "Refresh-token family lifecycle per second: issued, rotated, reuse_detected, family_revoked, issue_failed. Reuse detection revokes a whole family."
+   "description": "Refresh-token family lifecycle per second: issued, rotated, retried (a lost or concurrent refresh answered with the token its rotation stored), reuse_detected, family_revoked, issue_failed. Reuse detection revokes a whole family; a steady retried rate hints at tokens shared between holders."
   },
   {
    "type": "timeseries",
@@ -2169,7 +2169,7 @@
      "range": true
     }
    ],
-   "description": "Families coupled to an OIDC offline session: provider refreshes (refreshed, rotated, invalid_grant, identity_changed, unavailable, rotation_lost) and best-effort revocations. rotation_lost and revocation_skipped deserve attention."
+   "description": "Families coupled to an OIDC offline session: provider refreshes (refreshed, rotated, resealed under the active key, reseal_failed, invalid_grant, identity_changed, unavailable, rotation_lost) and best-effort revocations. rotation_lost, reseal_failed and revocation_skipped deserve attention; reseal_failed must stay at zero before an old upstream key is removed."
   }
  ]
 }
