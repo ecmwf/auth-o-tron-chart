@@ -150,8 +150,11 @@ OAuth refresh tokens stored in Valkey (bundled or external) also need
 the same on every replica and distinct from the upstream token keys, mounted from a
 Secret the same way (for example `openssl rand -base64 32` into a key `retry.key`).
 Rendering fails when an enabled client has `refresh_tokens.enabled` and the file is
-not set, as the server would refuse to start. Replacing the key only makes retries
-that span the change fail; see the Auth-O-Tron OAuth documentation's *Retries*.
+not set, as the server would refuse to start, unless `extraEnv` sets
+`AOT_OAUTH__REFRESH_TOKEN_RETRY_KEY_FILE` to a non-empty `value` or a `valueFrom`;
+the server reads that variable over the configuration. Replacing the key only makes
+retries that span the change fail; see the Auth-O-Tron OAuth documentation's
+*Retries*.
 
 The page links to origin-root `/static/login.css` and `/favicon.ico` assets. Prefix-rewriting ingresses must also route those root paths; the preview has no configurable base path.
 

@@ -584,6 +584,38 @@ class Contracts(unittest.TestCase):
                 config(render(values))["oauth"]["refresh_token_retry_key_file"],
                 "/run/secrets/oauth/retry.key",
             )
+        # The path may come from extraEnv instead, which the server reads over config;
+        # an empty value is no path.
+        name = "AOT_OAUTH__REFRESH_TOKEN_RETRY_KEY_FILE"
+        values = copy.deepcopy(BUNDLED)
+        values["config"] = {**direct_config(), "oauth": copy.deepcopy(oauth)}
+        for env, renders in (
+            ({"name": name, "value": "/run/secrets/oauth/retry.key"}, True),
+            (
+                {
+                    "name": name,
+                    "valueFrom": {"configMapKeyRef": {"name": "oauth", "key": "retry"}},
+                },
+                True,
+            ),
+            ({"name": name, "value": ""}, False),
+            ({"name": name, "value": "  "}, False),
+            (
+                {"name": "AOT_OAUTH__OTHER", "value": "/run/secrets/oauth/retry.key"},
+                False,
+            ),
+        ):
+            values["extraEnv"] = [env]
+            if renders:
+                docs = render(values)
+                self.assertNotIn("refresh_token_retry_key_file", config(docs)["oauth"])
+                container = app(docs)["spec"]["template"]["spec"]["containers"][0]
+                self.assertIn(env, container["env"])
+            else:
+                error = render(values, failed=True)
+                self.assertIn(
+                    "require config.oauth.refresh_token_retry_key_file", error
+                )
         # Without refresh tokens, without OAuth, or with memory sessions, none is needed.
         for change in ("no refresh", "disabled", "memory"):
             values = copy.deepcopy(BUNDLED)

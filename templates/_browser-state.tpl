@@ -142,14 +142,22 @@ An OIDC realm must differ from every provider realm and from the other OIDC real
 {{- if eq $backend.type "valkey" -}}
   {{- if not $backend.url -}}{{- fail "external Valkey requires config.ui.browser_session.backend.url" -}}{{- end -}}
   {{/* Refresh tokens in Valkey need a retry key the same on every replica; the server
-  refuses to start without it, so refuse to render. */}}
+  refuses to start without it, so refuse to render. The path may come from config or
+  from an extraEnv entry AOT_OAUTH__REFRESH_TOKEN_RETRY_KEY_FILE with a non-empty value
+  or a valueFrom, which the server reads over config. */}}
   {{- $oauth := default dict $config.oauth -}}
   {{- $refresh := false -}}
   {{- range (default list $oauth.clients) -}}
     {{- if and (kindIs "map" .) (dig "refresh_tokens" "enabled" false .) -}}{{- $refresh = true -}}{{- end -}}
   {{- end -}}
-  {{- if and $oauth.enabled $refresh (not $oauth.refresh_token_retry_key_file) -}}
-    {{- fail "refresh tokens in Valkey require config.oauth.refresh_token_retry_key_file, a key file mounted from a Secret on every replica" -}}
+  {{- $retryKeyEnv := false -}}
+  {{- range .Values.extraEnv -}}
+    {{- if and (eq .name "AOT_OAUTH__REFRESH_TOKEN_RETRY_KEY_FILE") (or (trim (toString (default "" .value))) .valueFrom) -}}
+      {{- $retryKeyEnv = true -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if and $oauth.enabled $refresh (not $oauth.refresh_token_retry_key_file) (not $retryKeyEnv) -}}
+    {{- fail "refresh tokens in Valkey require config.oauth.refresh_token_retry_key_file (or extraEnv AOT_OAUTH__REFRESH_TOKEN_RETRY_KEY_FILE), a key file mounted from a Secret on every replica" -}}
   {{- end -}}
   {{- if not (or $secret.name (eq (int $passwordEnvs) 1)) -}}{{- fail "Valkey browser sessions require browserState.passwordSecret.name or one password extraEnv secretKeyRef" -}}{{- end -}}
   {{- if not (hasKey $backend "key_prefix") -}}
