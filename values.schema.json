@@ -154,7 +154,7 @@
       ],
       "x-authotron-source": {
         "repository": "ecmwf/auth-o-tron",
-        "commit": "6335d551ca720f833a7eab6bde239025dea91ae7",
+        "commit": "aac69500836705393433fa3be95fc9610dbfbd9d",
         "path": "authotron/schema.json",
         "sha256": "fecb2c0ed0befd769fe50a9389d7ffb17500ef6ffbe4e7c40e42f1510b624307"
       }
