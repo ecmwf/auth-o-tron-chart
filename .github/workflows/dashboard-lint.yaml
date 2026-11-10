@@ -1,0 +1,63 @@
+name: Dashboard Lint
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dashboard-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DASHBOARD_LINTER_VERSION: "0.2.0"
+      PROMETHEUS_VERSION: "3.13.1"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Validate dashboard JSON and metric migration
+        run: python3 scripts/validate-dashboard.py dashboards/auth-o-tron.json
+
+      - name: Install dashboard-linter
+        run: |
+          set -euo pipefail
+          install_dir="$(mktemp -d)"
+          archive="dashboard-linter_${DASHBOARD_LINTER_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -o "${install_dir}/${archive}" \
+            "https://github.com/grafana/dashboard-linter/releases/download/v${DASHBOARD_LINTER_VERSION}/${archive}"
+          cd "${install_dir}"
+          echo "6cf73633018ef705cd12eda88736b872f5858137baa9dc9df83262d721934fac  ${archive}" \
+            | sha256sum --check --strict -
+          tar -xzf "${archive}"
+          echo "DASHBOARD_LINTER=${install_dir}/dashboard-linter" >> "${GITHUB_ENV}"
+
+      - name: Run dashboard-linter
+        run: >-
+          "${DASHBOARD_LINTER}" lint --strict
+          --config dashboards/.lint dashboards/auth-o-tron.json
+
+      - name: Install PromQL parser
+        run: |
+          set -euo pipefail
+          install_dir="$(mktemp -d)"
+          archive="prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+          curl -fsSL -o "${install_dir}/${archive}" \
+            "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/${archive}"
+          curl -fsSL -o "${install_dir}/sha256sums.txt" \
+            "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/sha256sums.txt"
+          cd "${install_dir}"
+          grep "  ${archive}$" sha256sums.txt | sha256sum --check --strict -
+          tar -xzf "${archive}" --strip-components=1
+          echo "PROMTOOL=${install_dir}/promtool" >> "${GITHUB_ENV}"
+
+      - name: Parse dashboard PromQL
+        run: >-
+          python3 scripts/validate-dashboard.py dashboards/auth-o-tron.json
+          --promtool "${PROMTOOL}"
